@@ -4,7 +4,7 @@
 [![codecov.io](http://codecov.io/github/akarnokd/async-enumerable/coverage.svg?branch=master)](http://codecov.io/github/akarnokd/async-enumerable?branch=master)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.akarnokd/async-enumerable/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.akarnokd/async-enumerable)
 
-Prototype library based on the asyncronous enumerable concept (where moveNext() returns a task to compose over). 
+Prototype Java 9 library based on the asynchronous enumerable concept (where moveNext() returns a task to compose over). 
 
 ### Gradle
 
@@ -22,8 +22,8 @@ AsyncEnumerable<Integer> source = AsyncEnumerable.range(1, 10);
 AsyncEnumerable<String> strings = AsyncEnumerable.fromArray("a", "b", "c", "d");
 ```
 
-`AsyncEnumerable<T>` is a deferred cold source, which can be synchronous or asynchronous, and one 
-requires to call `enumerator()` to receive another interface,
+`AsyncEnumerable<T>` is a deferred cold source, which can be synchronous or asynchronous, the 
+`enumerator()` has to be called to receive another interface,
 `hu.akarnokd.asyncenum.AsyncEnumerator` to be "iterated" over.
 
 ```java
