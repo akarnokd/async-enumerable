@@ -62,7 +62,7 @@ Therefore, consuming multiple values via a plain for loop doesn't work; one has 
 `CompletionStage` completed with `true` in a recursively looking pattern. Since some `AsyncEnumerable` chains can
 be synchronous, this leads to `StackOverflowError` if not handled properly. 
 
-For this purpose, the `forEach()` instance method on AsyncEnumerable is available, but given an `AsyncEnumerator`, 
+For this purpose, the `forEach()` instance method on `AsyncEnumerable` is available, but given an `AsyncEnumerator`, 
 the following consumption pattern can be employed:
 
 ```java
@@ -103,4 +103,4 @@ new EnumeratorConsumer(source.enumerator()).moveNext();
 
 This is practically the same queue-drain or trampolining logic used throughout RxJava. It is recommended though
 to use the combinators and operators of `AsyncEnumerable` instead as working with a sequence of `CompletionStage`
-continuations, especially when there are multiple active sequences involved is complicated.
+continuations, especially when there are multiple active sequences involved as complications.
