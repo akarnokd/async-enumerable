@@ -56,7 +56,7 @@ public interface AsyncEnumerable<T> {
     }
 
     @SafeVarargs
-    static <T> AsyncEnumerable<T> concat(AsyncEnumerable<T>... sources) {
+    static <T> AsyncEnumerable<T> concatArray(AsyncEnumerable<T>... sources) {
         return new AsyncConcatArray<>(sources);
     }
 
@@ -90,6 +90,18 @@ public interface AsyncEnumerable<T> {
 
     static <T> AsyncEnumerable<T> defer(Supplier<? extends AsyncEnumerable<? extends T>> supplier) {
         return new AsyncDefer<>(supplier);
+    }
+
+    @SafeVarargs
+    static <T, R> AsyncEnumerable<R> zipArray(
+            Function<? super Object[], ? extends R> zipper, AsyncEnumerable<? extends T>... sources
+    ) {
+        return new AsyncZipArray<>(sources, zipper);
+    }
+
+    @SafeVarargs
+    static <T> AsyncEnumerable<T> mergeArray(AsyncEnumerable<? extends T>... sources) {
+        return fromArray(sources).flatMap(v -> v);
     }
 
     // -------------------------------------------------------------------------------------
@@ -177,6 +189,23 @@ public interface AsyncEnumerable<T> {
         return to(composer);
     }
 
+    default AsyncEnumerable<T> concatWith(AsyncEnumerable<T> other) {
+        return concatArray(this, other);
+    }
+
+    default AsyncEnumerable<T> startWith(AsyncEnumerable<T> other) {
+        return concatArray(other, this);
+    }
+
+    @SuppressWarnings("unchecked")
+    default <U, R> AsyncEnumerable<R> zipWith(AsyncEnumerable<U> other, BiFunction<? super T, ? super U, ? extends R> zipper) {
+        return zipArray(a -> zipper.apply((T)a[0], (U)a[1]), this, other);
+    }
+
+    default AsyncEnumerable<T> mergeWith(AsyncEnumerable<T> other) {
+        return mergeArray(this, other);
+    }
+
     // -------------------------------------------------------------------------------------
     // Instance consumers
 
@@ -196,5 +225,11 @@ public interface AsyncEnumerable<T> {
         } catch (InterruptedException | ExecutionException ex) {
             throw new RuntimeException(ex);
         }
+    }
+
+    default T blockingLast() {
+        AsyncBlockingLast<T> bl = new AsyncBlockingLast<>(enumerator());
+        bl.moveNext();
+        return bl.blockingGet();
     }
 }

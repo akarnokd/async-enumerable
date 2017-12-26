@@ -27,7 +27,7 @@ public class AsyncConcatArrayTest {
     @Test
     public void simple() throws Exception {
         List<Integer> list = new ArrayList<>();
-        AsyncEnumerable.concat(
+        AsyncEnumerable.concatArray(
                 AsyncEnumerable.range(1, 3),
                 AsyncEnumerable.range(4, 2))
                 .forEach(list::add)
@@ -48,10 +48,32 @@ public class AsyncConcatArrayTest {
         sources[0] = AsyncEnumerable.range(1, 3);
         sources[999_999] = AsyncEnumerable.range(4, 2);
 
-        AsyncEnumerable.concat(sources)
+        AsyncEnumerable.concatArray(sources)
                 .forEach(list::add)
                 .toCompletableFuture()
                 .get();
+
+        assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
+    }
+
+    @Test
+    public void startWith() {
+        List<Integer> list =
+                AsyncEnumerable.range(1, 3)
+                .startWith(AsyncEnumerable.range(4, 2))
+                .toList()
+                .blockingFirst();
+
+        assertEquals(Arrays.asList(4, 5, 1, 2, 3), list);
+    }
+
+    @Test
+    public void concatWith() {
+        List<Integer> list =
+                AsyncEnumerable.range(1, 3)
+                        .concatWith(AsyncEnumerable.range(4, 2))
+                        .toList()
+                        .blockingFirst();
 
         assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
     }
