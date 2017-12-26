@@ -9,7 +9,7 @@ Prototype Java 9 library based on the asynchronous enumerable concept (where mov
 ### Gradle
 
 ```groovy
-compile "com.github.akarnokd:async-enumerable:0.1.0"
+compile "com.github.akarnokd:async-enumerable:0.2.0"
 ```
 
 ### Getting started
@@ -35,7 +35,9 @@ source to produce the next value but instead of returning a `false` or `true` im
 `java.util.concurrent.CompletionStage<Boolean>` that is completed with `true` if a value is ready and `false` if no
 more values to be expected. In the `true` case, one can read the current value via `current()`. 
 
-(Cancelling a sequence is currently not supported due to still experimenting with ways to express it.)
+(Cancelling a sequence is currently partially supported via the `cancel()` method on `AsyncEnumerator`,
+but it feels too much Reactive Streams and not like the pre-existing cancellation support in
+other async-enumerable libraries.)
 
 ```java
 CompletionStage<Boolean> stage = enumerator.moveNext();
