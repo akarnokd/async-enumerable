@@ -20,12 +20,25 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.*;
 
+/**
+ * Represents an possibly asynchronous, cold-deferred, source of zero or more items
+ * optionally followed by a Throwable.
+ * @param <T> the value type.
+ */
+@FunctionalInterface
 public interface AsyncEnumerable<T> {
 
+    /**
+     * Returns an AsyncEnumerator that can be iterated over to receive
+     * the next item, the end-of-sequence indicator or a Throwable.
+     * @return the new AsyncEnumerator instance
+     */
     AsyncEnumerator<T> enumerator();
 
+    /** Constant and already completed CompletionStage signalling {@code true}. */
     CompletionStage<Boolean> TRUE = CompletableFuture.completedStage(true);
 
+    /** Constant and already completed CompletionStage signalling {@code false}. */
     CompletionStage<Boolean> FALSE = CompletableFuture.completedStage(false);
 
     CompletionStage<Boolean> CANCELLED = CompletableFuture.failedStage(new CancellationException() {
@@ -214,6 +227,22 @@ public interface AsyncEnumerable<T> {
         return mergeArray(this, other);
     }
 
+    default AsyncEnumerable<T> doOnNext(Consumer<? super T> onNext) {
+        return new AsyncDoOn<>(this, onNext, t -> { }, () -> { });
+    }
+
+    default AsyncEnumerable<T> doOnError(Consumer<? super Throwable> onError) {
+        return new AsyncDoOn<>(this, t -> { }, onError, () -> { });
+    }
+
+    default AsyncEnumerable<T> doOnComplete(Runnable onComplete) {
+        return new AsyncDoOn<>(this, t -> { }, t -> { }, onComplete);
+    }
+
+    default AsyncEnumerable<T> doFinally(Runnable onFinally) {
+        return new AsyncDoFinally<>(this, onFinally);
+    }
+
     // -------------------------------------------------------------------------------------
     // Instance consumers
 
@@ -226,12 +255,15 @@ public interface AsyncEnumerable<T> {
         try {
             Boolean result = en.moveNext().toCompletableFuture().get();
             if (result) {
-                // TODO cancel rest
-                return en.current();
+                T r = en.current();
+                en.cancel();
+                return r;
             }
             throw new NoSuchElementException();
-        } catch (InterruptedException | ExecutionException ex) {
+        } catch (InterruptedException ex) {
             throw new RuntimeException(ex);
+        } catch (ExecutionException ex) {
+            throw ThrowableHelper.wrapOrThrow(ex.getCause());
         }
     }
 

@@ -35,7 +35,7 @@ final class AsyncTimer implements AsyncEnumerable<Long> {
     @Override
     public AsyncEnumerator<Long> enumerator() {
         TimerEnumerator en = new TimerEnumerator();
-        executor.schedule(en, time, unit);
+        en.task = executor.schedule(en, time, unit);
         return en;
     }
 
@@ -46,6 +46,8 @@ final class AsyncTimer implements AsyncEnumerable<Long> {
         Long result;
 
         boolean once;
+
+        Future<?> task;
 
         @Override
         public CompletionStage<Boolean> moveNext() {
@@ -67,6 +69,11 @@ final class AsyncTimer implements AsyncEnumerable<Long> {
             result = 0L;
             single.complete(true);
             return null;
+        }
+
+        @Override
+        public void cancel() {
+            task.cancel(false);
         }
     }
 }

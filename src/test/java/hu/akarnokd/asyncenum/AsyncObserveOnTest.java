@@ -18,6 +18,7 @@ package hu.akarnokd.asyncenum;
 
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.*;
 
@@ -43,5 +44,15 @@ public class AsyncObserveOnTest {
         } finally {
             exec.shutdownNow();
         }
+    }
+
+    @Test
+    public void error() {
+        TestHelper.withExecutor(exec -> {
+            TestHelper.assertFailure(
+                    AsyncEnumerable.error(new IllegalArgumentException("forced failure"))
+                            .observeOn(exec)
+                    , IllegalArgumentException.class, "forced failure");
+        });
     }
 }

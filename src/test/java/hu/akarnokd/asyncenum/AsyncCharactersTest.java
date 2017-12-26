@@ -16,19 +16,20 @@
 
 package hu.akarnokd.asyncenum;
 
-final class ExceptionHelper {
+import org.junit.Test;
 
-    private ExceptionHelper() {
-        throw new IllegalStateException("No instances");
-    }
+import java.util.*;
 
-    public static RuntimeException wrapOrThrow(Throwable ex) {
-        if (ex instanceof RuntimeException) {
-            return (RuntimeException)ex;
-        }
-        if (ex instanceof Error) {
-            throw (Error)ex;
-        }
-        return new RuntimeException(ex);
+import static org.junit.Assert.assertEquals;
+
+public class AsyncCharactersTest {
+
+    @Test
+    public void simple() {
+        List<Integer> list = AsyncEnumerable.characters("abcde")
+                .toList()
+                .blockingFirst();
+
+        assertEquals(Arrays.asList(97, 98, 99, 100, 101), list);
     }
 }

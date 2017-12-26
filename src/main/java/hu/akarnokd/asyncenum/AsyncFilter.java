@@ -92,5 +92,10 @@ final class AsyncFilter<T> implements AsyncEnumerable<T> {
                 current.complete(false);
             }
         }
+
+        @Override
+        public void cancel() {
+            source.cancel();
+        }
     }
 }

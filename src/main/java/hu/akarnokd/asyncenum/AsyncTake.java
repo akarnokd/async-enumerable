@@ -58,5 +58,10 @@ final class AsyncTake<T> implements AsyncEnumerable<T> {
         public T current() {
             return source.current();
         }
+
+        @Override
+        public void cancel() {
+            source.cancel();
+        }
     }
 }

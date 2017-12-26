@@ -90,5 +90,10 @@ final class AsyncSkip<T> implements AsyncEnumerable<T> {
                 nx.complete(false);
             }
         }
+
+        @Override
+        public void cancel() {
+            source.cancel();
+        }
     }
 }

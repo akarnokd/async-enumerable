@@ -99,5 +99,10 @@ final class AsyncCollect<T, C> implements AsyncEnumerable<C> {
                 cf.complete(true);
             }
         }
+
+        @Override
+        public void cancel() {
+            source.cancel();
+        }
     }
 }

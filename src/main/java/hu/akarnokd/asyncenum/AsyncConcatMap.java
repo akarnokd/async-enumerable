@@ -17,7 +17,7 @@
 package hu.akarnokd.asyncenum;
 
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.*;
 import java.util.function.*;
 
 final class AsyncConcatMap<T, R> implements AsyncEnumerable<R> {
@@ -47,7 +47,7 @@ final class AsyncConcatMap<T, R> implements AsyncEnumerable<R> {
 
         final AtomicInteger wipInner;
 
-        AsyncEnumerator<? extends R> currentSource;
+        final AtomicReference<AsyncEnumerator<R>> currentSource;
 
         volatile CompletableFuture<Boolean> completable;
 
@@ -56,6 +56,7 @@ final class AsyncConcatMap<T, R> implements AsyncEnumerable<R> {
         ConcatMapEnumerator(AsyncEnumerator<T> source, Function<? super T, ? extends AsyncEnumerable<? extends R>> mapper) {
             this.source = source;
             this.mapper = mapper;
+            this.currentSource = new AtomicReference<>();
             this.wipMain = new AtomicInteger();
             this.wipInner = new AtomicInteger();
         }
@@ -64,7 +65,7 @@ final class AsyncConcatMap<T, R> implements AsyncEnumerable<R> {
         public CompletionStage<Boolean> moveNext() {
             CompletableFuture<Boolean> cf = new CompletableFuture<>();
             completable = cf;
-            if (currentSource == null) {
+            if (currentSource.getPlain() == null) {
                 nextMain();
             } else {
                 nextInner();
@@ -80,26 +81,28 @@ final class AsyncConcatMap<T, R> implements AsyncEnumerable<R> {
         @Override
         public void accept(Boolean aBoolean, Throwable throwable) {
             if (throwable != null) {
+                source.cancel();
                 completable.completeExceptionally(throwable);
                 return;
             }
             if (aBoolean) {
-                current = currentSource.current();
+                current = currentSource.getPlain().current();
                 completable.complete(true);
             } else {
-                currentSource = null;
                 nextMain();
             }
         }
 
+        @SuppressWarnings("unchecked")
         public void acceptMain(Boolean aBoolean, Throwable throwable) {
             if (throwable != null) {
                 completable.completeExceptionally(throwable);
                 return;
             }
             if (aBoolean) {
-                currentSource = mapper.apply(source.current()).enumerator();
-                nextInner();
+                if (AsyncEnumeratorHelper.replace(currentSource, (AsyncEnumerator<R>)mapper.apply(source.current()).enumerator())) {
+                    nextInner();
+                }
             } else {
                 completable.complete(false);
             }
@@ -116,9 +119,14 @@ final class AsyncConcatMap<T, R> implements AsyncEnumerable<R> {
         void nextInner() {
             if (wipInner.getAndIncrement() == 0) {
                 do {
-                    currentSource.moveNext().whenComplete(this);
+                    currentSource.getPlain().moveNext().whenComplete(this);
                 } while (wipInner.decrementAndGet() != 0);
             }
+        }
+
+        @Override
+        public void cancel() {
+            AsyncEnumeratorHelper.cancel(currentSource);
         }
     }
 }

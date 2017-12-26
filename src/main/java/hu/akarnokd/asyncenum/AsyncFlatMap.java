@@ -59,6 +59,8 @@ final class AsyncFlatMap<T, R> implements AsyncEnumerable<R> {
 
         R current;
 
+        volatile boolean cancelled;
+
         FlatMapEnumerator(AsyncEnumerator<T> upstream, Function<? super T, ? extends AsyncEnumerable<? extends R>> mapper) {
             this.upstream = upstream;
             this.mapper = mapper;
@@ -141,12 +143,25 @@ final class AsyncFlatMap<T, R> implements AsyncEnumerable<R> {
                 AsyncEnumerator<? extends R> ae = mapper.apply(t).enumerator();
                 InnerAsyncEnumerator<R> inner = new InnerAsyncEnumerator<>(ae, this);
                 inners.put(inner, inner);
-                active.getAndIncrement();
-                inner.moveNext();
-                moveNextUpstream();
+                if (cancelled) {
+                    inners.remove(inner);
+                    inner.cancel();
+                } else {
+                    active.getAndIncrement();
+                    inner.moveNext();
+                    moveNextUpstream();
+                }
             } else {
                 active.decrementAndGet();
                 drain();
+            }
+        }
+
+        @Override
+        public void cancel() {
+            cancelled = true;
+            for (InnerAsyncEnumerator<R> inner : inners.keySet()) {
+                inner.cancel();
             }
         }
 
@@ -186,6 +201,10 @@ final class AsyncFlatMap<T, R> implements AsyncEnumerable<R> {
                 } else {
                     parent.finish(this);
                 }
+            }
+
+            void cancel() {
+                source.cancel();
             }
         }
     }

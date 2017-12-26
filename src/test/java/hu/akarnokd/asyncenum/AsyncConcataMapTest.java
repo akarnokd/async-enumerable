@@ -68,4 +68,22 @@ public class AsyncConcataMapTest {
             }
         }
     }
+
+    @Test
+    public void mainError() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.error(new RuntimeException("forced failure"))
+                .concatMap(v -> AsyncEnumerable.just(1)),
+                RuntimeException.class, "forced failure"
+        );
+    }
+
+    @Test
+    public void innerError() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.range(1, 5)
+                        .concatMap(v -> AsyncEnumerable.error(new RuntimeException("forced failure"))),
+                RuntimeException.class, "forced failure"
+        );
+    }
 }

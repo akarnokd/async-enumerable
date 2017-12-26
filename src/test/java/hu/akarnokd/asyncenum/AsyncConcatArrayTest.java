@@ -77,4 +77,9 @@ public class AsyncConcatArrayTest {
 
         assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
     }
+
+    @Test
+    public void emptyArray() {
+        TestHelper.assertResult(AsyncEnumerable.concatArray());
+    }
 }

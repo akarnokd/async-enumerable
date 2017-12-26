@@ -55,5 +55,10 @@ final class AsyncMap<T, R> implements AsyncEnumerable<R> {
         public R current() {
             return mapper.apply(source.current());
         }
+
+        @Override
+        public void cancel() {
+            source.cancel();
+        }
     }
 }

@@ -58,7 +58,7 @@ final class AsyncTimeoutTimed<T> implements AsyncEnumerable<T> {
 
         final AtomicLong index;
 
-        AsyncEnumerator<T> source;
+        final AtomicReference<AsyncEnumerator<T>> source;
 
         volatile CompletableFuture<Boolean> completable;
 
@@ -67,7 +67,7 @@ final class AsyncTimeoutTimed<T> implements AsyncEnumerable<T> {
         T result;
 
         TimeoutTimedEnumerator(AsyncEnumerator<T> source, long timeout, TimeUnit unit, ScheduledExecutorService executor, AsyncEnumerable<T> fallback) {
-            this.source = source;
+            this.source = new AtomicReference<>(source);
             this.timeout = timeout;
             this.unit = unit;
             this.executor = executor;
@@ -80,7 +80,7 @@ final class AsyncTimeoutTimed<T> implements AsyncEnumerable<T> {
         public CompletionStage<Boolean> moveNext() {
             CompletableFuture<Boolean> cf = new CompletableFuture<>();
             completable = cf;
-            AsyncEnumerator<T> en = source;
+            AsyncEnumerator<T> en = source.getPlain();
             long idx = index.get();
             if (idx != Long.MAX_VALUE) {
                 future = executor.schedule(() -> timeout(idx), timeout, unit);
@@ -113,7 +113,7 @@ final class AsyncTimeoutTimed<T> implements AsyncEnumerable<T> {
             }
 
             if (aBoolean) {
-                result = source.current();
+                result = source.getPlain().current();
                 cf.complete(true);
             } else {
                 cf.complete(false);
@@ -122,13 +122,20 @@ final class AsyncTimeoutTimed<T> implements AsyncEnumerable<T> {
 
         void timeout(long index) {
             if (this.index.compareAndSet(index, Long.MAX_VALUE)) {
+                source.getPlain().cancel();
                 if (fallback != null) {
-                    source = fallback.enumerator();
-                    source.moveNext().whenComplete(this::acceptFallback);
+                    if (AsyncEnumeratorHelper.replace(source, fallback.enumerator())) {
+                        source.getPlain().moveNext().whenComplete(this::acceptFallback);
+                    }
                 } else {
                     completable.completeExceptionally(new TimeoutException());
                 }
             }
+        }
+
+        @Override
+        public void cancel() {
+            AsyncEnumeratorHelper.cancel(source);
         }
     }
 }

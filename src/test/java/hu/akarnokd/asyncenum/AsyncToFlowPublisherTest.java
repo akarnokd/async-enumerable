@@ -16,26 +16,87 @@
 
 package hu.akarnokd.asyncenum;
 
-import org.reactivestreams.tck.TestEnvironment;
-import org.reactivestreams.tck.flow.FlowPublisherVerification;
-import org.testng.annotations.Test;
+import org.junit.Test;
 
+import java.util.*;
 import java.util.concurrent.Flow;
 
-@Test
-public class AsyncToFlowPublisherTest extends FlowPublisherVerification<Integer> {
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
-    public AsyncToFlowPublisherTest() {
-        super(new TestEnvironment());
+public class AsyncToFlowPublisherTest {
+
+    @Test
+    public void simple() {
+        List<Object> list = new ArrayList<>();
+        AsyncEnumerable.range(1, 5)
+                .toFlowPublisher()
+                .subscribe(new Flow.Subscriber<>() {
+
+                    Flow.Subscription upstream;
+
+                    @Override
+                    public void onSubscribe(Flow.Subscription subscription) {
+                        upstream = subscription;
+                        subscription.request(1);
+                    }
+
+                    @Override
+                    public void onNext(Integer item) {
+                        list.add(item);
+                        upstream.request(1);
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                        list.add(throwable);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        list.add("done");
+                    }
+                });
+
+        assertEquals(Arrays.asList(1, 2, 3, 4, 5, "done"), list);
     }
 
-    @Override
-    public Flow.Publisher<Integer> createFlowPublisher(long elements) {
-        return AsyncEnumerable.range(0, (int)elements).toFlowPublisher();
-    }
 
-    @Override
-    public Flow.Publisher<Integer> createFailedFlowPublisher() {
-        return null;
+    @Test
+    public void simpleError() {
+        List<Object> list = new ArrayList<>();
+        AsyncEnumerable.range(1, 5)
+                .concatWith(AsyncEnumerable.error(new RuntimeException("error")))
+                .toFlowPublisher()
+                .subscribe(new Flow.Subscriber<>() {
+
+                    Flow.Subscription upstream;
+
+                    @Override
+                    public void onSubscribe(Flow.Subscription subscription) {
+                        upstream = subscription;
+                        subscription.request(1);
+                    }
+
+                    @Override
+                    public void onNext(Integer item) {
+                        list.add(item);
+                        upstream.request(1);
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                        list.add(throwable);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        list.add("done");
+                    }
+                });
+
+        assertEquals(Arrays.asList(1, 2, 3, 4, 5), list.subList(0, 5));
+
+        assertTrue("" + list.get(5), ((Throwable)list.get(5)).getMessage().equals("error"));
     }
 }

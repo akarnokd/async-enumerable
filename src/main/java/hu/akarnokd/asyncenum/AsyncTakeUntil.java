@@ -36,7 +36,7 @@ final class AsyncTakeUntil<T, U> implements AsyncEnumerable<T> {
         AsyncEnumerator<U> otherEnum = other.enumerator();
         TakeUntilEnumerator<T, U> main = new TakeUntilEnumerator<>(otherEnum);
         otherEnum.moveNext().whenComplete(main::acceptOther);
-        CancelledAsyncEnumerator.replace(main.source, source.enumerator());
+        AsyncEnumeratorHelper.replace(main.source, source.enumerator());
         return main;
     }
 
@@ -93,7 +93,7 @@ final class AsyncTakeUntil<T, U> implements AsyncEnumerable<T> {
         }
 
         public void acceptOther(Boolean aBoolean, Throwable throwable) {
-            CancelledAsyncEnumerator.cancel(source);
+            AsyncEnumeratorHelper.cancel(source);
             if (throwable == null) {
                 CompletableFuture<Boolean> cf = getAndSet(STOP);
                 if (cf != null && !(cf instanceof TerminalCompletableFuture)) {

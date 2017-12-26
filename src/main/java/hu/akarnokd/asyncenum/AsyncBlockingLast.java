@@ -74,7 +74,7 @@ final class AsyncBlockingLast<T> extends CountDownLatch implements BiConsumer<Bo
         }
         Throwable ex = error;
         if (ex != null) {
-            throw ExceptionHelper.wrapOrThrow(ex);
+            throw ThrowableHelper.wrapOrThrow(ex);
         }
         if (hasValue) {
             return result;

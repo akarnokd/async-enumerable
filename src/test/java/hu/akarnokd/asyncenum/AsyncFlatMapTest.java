@@ -36,4 +36,18 @@ public class AsyncFlatMapTest {
         // due to prefetch 1, the result is the breadth-first collection
         assertEquals(Arrays.asList(1, 2, 3, 4, 5, 2, 3, 4, 5, 6), list);
     }
+
+
+    @Test
+    public void synchronousTake() throws Exception {
+        List<Integer> list =
+        AsyncEnumerable.range(1, 5)
+                .flatMap(v -> AsyncEnumerable.range(v, 2))
+                .take(5)
+                .toList()
+                .blockingFirst();
+
+        // due to prefetch 1, the result is the breadth-first collection
+        assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
+    }
 }
