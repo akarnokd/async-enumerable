@@ -33,9 +33,10 @@ final class AsyncTakeUntil<T, U> implements AsyncEnumerable<T> {
 
     @Override
     public AsyncEnumerator<T> enumerator() {
-        TakeUntilEnumerator<T, U> main = new TakeUntilEnumerator<>();
-        other.enumerator().moveNext().whenComplete(main::acceptOther);
-        main.source = source.enumerator();
+        AsyncEnumerator<U> otherEnum = other.enumerator();
+        TakeUntilEnumerator<T, U> main = new TakeUntilEnumerator<>(otherEnum);
+        otherEnum.moveNext().whenComplete(main::acceptOther);
+        CancelledAsyncEnumerator.replace(main.source, source.enumerator());
         return main;
     }
 
@@ -44,22 +45,29 @@ final class AsyncTakeUntil<T, U> implements AsyncEnumerable<T> {
             implements AsyncEnumerator<T>,
             BiConsumer<Boolean, Throwable> {
 
-        AsyncEnumerator<T> source;
+        final AsyncEnumerator<U> other;
+
+        final AtomicReference<AsyncEnumerator<T>> source;
 
         CompletableFuture<Boolean> current;
+
+        TakeUntilEnumerator(AsyncEnumerator<U> other) {
+            this.other = other;
+            this.source = new AtomicReference<>();
+        }
 
         @Override
         public CompletionStage<Boolean> moveNext() {
             for (;;) {
                 CompletableFuture<Boolean> curr = get();
                 if (curr instanceof TerminalCompletableFuture) {
-                    // TODO cancel the other
+                    other.cancel();
                     return curr;
                 }
                 CompletableFuture<Boolean> next = new CompletableFuture<>();
                 if (compareAndSet(curr, next)) {
                     current = next;
-                    source.moveNext().whenComplete(this);
+                    source.getPlain().moveNext().whenComplete(this);
                     return next;
                 }
             }
@@ -67,25 +75,25 @@ final class AsyncTakeUntil<T, U> implements AsyncEnumerable<T> {
 
         @Override
         public T current() {
-            return source.current();
+            return source.getPlain().current();
         }
 
 
         @Override
         public void accept(Boolean aBoolean, Throwable throwable) {
             if (throwable != null) {
-                // TODO cancel other
+                other.cancel();
                 current.completeExceptionally(throwable);
                 return;
             }
             if (!aBoolean) {
-                // TODO cancel other
+                other.cancel();
             }
             current.complete(aBoolean);
         }
 
         public void acceptOther(Boolean aBoolean, Throwable throwable) {
-            // TODO cancel source
+            CancelledAsyncEnumerator.cancel(source);
             if (throwable == null) {
                 CompletableFuture<Boolean> cf = getAndSet(STOP);
                 if (cf != null && !(cf instanceof TerminalCompletableFuture)) {

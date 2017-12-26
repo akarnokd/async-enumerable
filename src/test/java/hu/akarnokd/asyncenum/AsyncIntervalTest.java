@@ -16,16 +16,27 @@
 
 package hu.akarnokd.asyncenum;
 
-import java.util.concurrent.CompletionStage;
+import org.junit.Test;
 
-public interface AsyncEnumerator<T> {
+import java.util.*;
+import java.util.concurrent.*;
 
-    CompletionStage<Boolean> moveNext();
+import static org.junit.Assert.assertEquals;
 
-    T current();
+public class AsyncIntervalTest {
 
-    // FIXME make mandatory
-    default void cancel() {
+    @Test
+    public void simple() {
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+        try {
+            List<Long> list = AsyncEnumerable.interval(1, TimeUnit.MILLISECONDS, executor)
+                    .take(5)
+                    .toList()
+                    .blockingFirst();
 
+            assertEquals(Arrays.asList(0L, 1L, 2L, 3L, 4L), list);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 }

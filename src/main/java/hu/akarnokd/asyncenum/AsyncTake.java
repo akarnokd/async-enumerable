@@ -48,7 +48,7 @@ final class AsyncTake<T> implements AsyncEnumerable<T> {
         @Override
         public CompletionStage<Boolean> moveNext() {
             if (n-- <= 0L) {
-                // TODO source.cancel()
+                source.cancel();
                 return FALSE;
             }
             return source.moveNext();

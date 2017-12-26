@@ -104,6 +104,14 @@ public interface AsyncEnumerable<T> {
         return fromArray(sources).flatMap(v -> v);
     }
 
+    static AsyncEnumerable<Long> interval(long period, TimeUnit unit, ScheduledExecutorService executor) {
+        return interval(period, period, unit, executor);
+    }
+
+    static AsyncEnumerable<Long> interval(long initialDelay, long period, TimeUnit unit, ScheduledExecutorService executor) {
+        return new AsyncInterval(initialDelay, period, unit, executor);
+    }
+
     // -------------------------------------------------------------------------------------
     // Instance transformations
 
