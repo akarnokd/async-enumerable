@@ -44,4 +44,13 @@ public class AsyncOnErrorResumeTest {
 
         assertEquals(Arrays.asList(6, 7, 8, 9, 10), list);
     }
+
+    @Test
+    public void fallbackToError() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.error(new RuntimeException("outer"))
+                .onErrorResume(v -> AsyncEnumerable.error(new RuntimeException("inner"))),
+                RuntimeException.class, "inner"
+        );
+    }
 }

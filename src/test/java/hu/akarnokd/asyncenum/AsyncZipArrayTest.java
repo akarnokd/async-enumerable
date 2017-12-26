@@ -73,4 +73,12 @@ public class AsyncZipArrayTest {
 
         assertEquals(Arrays.asList(10 + 1, 11 + 2, 12 + 3, 13 + 4, 14 + 5), list);
     }
+
+    @Test
+    public void oneError() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.just(1).zipWith(AsyncEnumerable.error(new RuntimeException("forced failure")), (a, b) -> a),
+                RuntimeException.class, "forced failure"
+        );
+    }
 }

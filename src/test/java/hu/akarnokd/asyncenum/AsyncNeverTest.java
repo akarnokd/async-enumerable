@@ -16,22 +16,14 @@
 
 package hu.akarnokd.asyncenum;
 
-/**
- * Utility class to work with Throwables.
- */
-final class ThrowableHelper {
+import org.junit.Test;
 
-    private ThrowableHelper() {
-        throw new IllegalStateException("No instances!");
-    }
+import static org.junit.Assert.assertNull;
 
-    public static RuntimeException wrapOrThrow(Throwable ex) {
-        if (ex instanceof RuntimeException) {
-            return (RuntimeException)ex;
-        }
-        if (ex instanceof Error) {
-            throw (Error)ex;
-        }
-        return new RuntimeException(ex);
+public class AsyncNeverTest {
+
+    @Test
+    public void nullCurrent() {
+        assertNull(AsyncNever.INSTANCE.current());
     }
 }

@@ -19,9 +19,11 @@ package hu.akarnokd.asyncenum;
 import org.junit.Test;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 public class AsyncTakeUntilTest {
 
@@ -47,5 +49,68 @@ public class AsyncTakeUntilTest {
                 .blockingFirst();
 
         assertEquals(Collections.emptyList(), list);
+    }
+
+    @Test
+    public void errorMain() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.error(new RuntimeException("forced failure"))
+                .takeUntil(AsyncEnumerable.never()),
+                RuntimeException.class, "forced failure"
+        );
+    }
+
+    @Test
+    public void errorOther() {
+        TestHelper.withScheduler(executor -> {
+            CompletableFuture<String> cf = new CompletableFuture<>();
+
+            executor.schedule(() -> cf.completeExceptionally(new RuntimeException("forced failure")), 100, TimeUnit.MILLISECONDS);
+            TestHelper.assertFailure(
+                    AsyncEnumerable.never()
+                            .takeUntil(AsyncEnumerable.fromCompletionStage(cf)),
+                    RuntimeException.class, "forced failure"
+            );
+        });
+    }
+
+
+    @Test
+    public void signalOther() {
+        TestHelper.withScheduler(executor -> {
+            CompletableFuture<String> cf = new CompletableFuture<>();
+
+            executor.schedule(() -> cf.complete(""), 100, TimeUnit.MILLISECONDS);
+            TestHelper.assertResult(
+                    AsyncEnumerable.never()
+                            .takeUntil(AsyncEnumerable.fromCompletionStage(cf))
+            );
+        });
+    }
+
+    @Test
+    public void moveNextSignalRace() {
+        TestHelper.withExecutor(executor -> {
+
+            for (int i = 0; i < 10000; i++) {
+                CompletableFuture<String> cf = new CompletableFuture<>();
+                AsyncEnumerator<Object> en = AsyncEnumerable.never()
+                        .takeUntil(AsyncEnumerable.fromCompletionStage(cf)).enumerator();
+
+                AtomicReference<CompletionStage<Boolean>> ref = new AtomicReference<>();
+
+                TestHelper.race(
+                        () -> cf.complete(""),
+                        () -> ref.set(en.moveNext()),
+                        executor
+                );
+
+                try {
+                    assertFalse(ref.getPlain().toCompletableFuture().get());
+                } catch (Throwable ex) {
+                    throw new AssertionError(ex);
+                }
+            }
+        });
     }
 }

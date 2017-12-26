@@ -16,22 +16,11 @@
 
 package hu.akarnokd.asyncenum;
 
-/**
- * Utility class to work with Throwables.
- */
-final class ThrowableHelper {
+import java.util.concurrent.CancellationException;
 
-    private ThrowableHelper() {
-        throw new IllegalStateException("No instances!");
-    }
-
-    public static RuntimeException wrapOrThrow(Throwable ex) {
-        if (ex instanceof RuntimeException) {
-            return (RuntimeException)ex;
-        }
-        if (ex instanceof Error) {
-            throw (Error)ex;
-        }
-        return new RuntimeException(ex);
+final class CancelledEnumeratorException extends CancellationException {
+    @Override
+    public synchronized Throwable fillInStackTrace() {
+        return this;
     }
 }

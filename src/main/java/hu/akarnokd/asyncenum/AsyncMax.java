@@ -50,7 +50,7 @@ final class AsyncMax<T> implements AsyncEnumerable<T> {
         T result;
         boolean done;
 
-        CompletableFuture<Boolean> cf;
+        CompletableFuture<Boolean> completable;
 
         SumLongEnumerator(AsyncEnumerator<T> source, Comparator<? super T> comparator) {
             this.source = source;
@@ -63,9 +63,9 @@ final class AsyncMax<T> implements AsyncEnumerable<T> {
                 result = null;
                 return FALSE;
             }
-            cf = new CompletableFuture<>();
+            completable = new CompletableFuture<>();
             collectSource();
-            return cf;
+            return completable;
         }
 
         @Override
@@ -85,7 +85,7 @@ final class AsyncMax<T> implements AsyncEnumerable<T> {
         public void accept(Boolean aBoolean, Throwable throwable) {
             if (throwable != null) {
                 done = true;
-                cf.completeExceptionally(throwable);
+                completable.completeExceptionally(throwable);
                 return;
             }
 
@@ -104,9 +104,9 @@ final class AsyncMax<T> implements AsyncEnumerable<T> {
                 done = true;
                 if (hasValue) {
                     result = max;
-                    cf.complete(true);
+                    completable.complete(true);
                 } else {
-                    cf.complete(false);
+                    completable.complete(false);
                 }
             }
         }

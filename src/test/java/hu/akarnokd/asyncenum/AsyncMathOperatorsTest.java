@@ -58,4 +58,55 @@ public class AsyncMathOperatorsTest {
         assertEquals(Collections.singletonList(1), list);
     }
 
+    @Test
+    public void max2() {
+        TestHelper.assertResult(
+                AsyncEnumerable.fromArray(5, 1, 3, 2, 4)
+                        .max(Comparator.<Integer>naturalOrder().reversed())
+                ,
+                1
+        );
+    }
+
+    @Test
+    public void maxEmpty() {
+        TestHelper.assertResult(AsyncEnumerable.<Integer>empty().max(Comparator.naturalOrder()));
+    }
+
+    @Test
+    public void sumIntEmpty() {
+        TestHelper.assertResult(AsyncEnumerable.<Integer>empty().sumInt(v -> v));
+    }
+
+    @Test
+    public void sumLongEmpty() {
+        TestHelper.assertResult(AsyncEnumerable.<Integer>empty().sumLong(v -> v));
+    }
+
+    @Test
+    public void maxError() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.<Integer>error(new RuntimeException("forced failure"))
+                .max(Comparator.naturalOrder()),
+                RuntimeException.class, "forced failure"
+        );
+    }
+
+    @Test
+    public void sumIntError() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.<Integer>error(new RuntimeException("forced failure"))
+                        .sumInt(v -> v),
+                RuntimeException.class, "forced failure"
+        );
+    }
+
+    @Test
+    public void sumLongError() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.<Integer>error(new RuntimeException("forced failure"))
+                        .sumLong(v -> v),
+                RuntimeException.class, "forced failure"
+        );
+    }
 }

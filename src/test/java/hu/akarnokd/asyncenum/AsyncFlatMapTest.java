@@ -50,4 +50,22 @@ public class AsyncFlatMapTest {
         // due to prefetch 1, the result is the breadth-first collection
         assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
     }
+
+    @Test
+    public void mainError() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.error(new RuntimeException("forced failure"))
+                        .flatMap(v -> AsyncEnumerable.just(1)),
+                RuntimeException.class, "forced failure"
+        );
+    }
+
+    @Test
+    public void innerError() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.range(1, 5)
+                        .flatMap(v -> AsyncEnumerable.error(new RuntimeException("forced failure"))),
+                RuntimeException.class, "forced failure"
+        );
+    }
 }

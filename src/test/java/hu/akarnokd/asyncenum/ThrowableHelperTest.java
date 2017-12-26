@@ -16,22 +16,17 @@
 
 package hu.akarnokd.asyncenum;
 
-/**
- * Utility class to work with Throwables.
- */
-final class ThrowableHelper {
+import org.junit.Test;
 
-    private ThrowableHelper() {
-        throw new IllegalStateException("No instances!");
+public class ThrowableHelperTest {
+
+    @Test
+    public void utilityClass() {
+        TestHelper.checkUtility(ThrowableHelper.class);
     }
 
-    public static RuntimeException wrapOrThrow(Throwable ex) {
-        if (ex instanceof RuntimeException) {
-            return (RuntimeException)ex;
-        }
-        if (ex instanceof Error) {
-            throw (Error)ex;
-        }
-        return new RuntimeException(ex);
+    @Test(expected = InternalError.class)
+    public void rethrowError() {
+        ThrowableHelper.wrapOrThrow(new InternalError());
     }
 }

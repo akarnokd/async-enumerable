@@ -16,22 +16,25 @@
 
 package hu.akarnokd.asyncenum;
 
-/**
- * Utility class to work with Throwables.
- */
-final class ThrowableHelper {
+import org.junit.Test;
 
-    private ThrowableHelper() {
-        throw new IllegalStateException("No instances!");
+import java.util.concurrent.ExecutionException;
+
+import static org.junit.Assert.assertTrue;
+
+public class AsyncForEachTest {
+
+    @Test
+    public void error() throws InterruptedException {
+        try {
+            AsyncEnumerable.error(new RuntimeException("forced failure"))
+                    .forEach(v -> {
+                    })
+                    .toCompletableFuture()
+                    .get();
+        } catch (ExecutionException ex) {
+            assertTrue(ex.toString(), ex.getCause().getMessage().equals("forced failure"));
+        }
     }
 
-    public static RuntimeException wrapOrThrow(Throwable ex) {
-        if (ex instanceof RuntimeException) {
-            return (RuntimeException)ex;
-        }
-        if (ex instanceof Error) {
-            throw (Error)ex;
-        }
-        return new RuntimeException(ex);
-    }
 }

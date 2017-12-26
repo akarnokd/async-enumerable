@@ -71,26 +71,25 @@ final class AsyncFromFlowPublisher<T> implements AsyncEnumerable<T> {
             return current;
         }
 
+        @Override
+        public void cancel() {
+            Flow.Subscription current = upstream.getAndSet(CancelledSubscription.CANCELLED);
+            if (current != null && current != CancelledSubscription.CANCELLED) {
+                current.cancel();
+            }
+        }
+
         void deferredRequestOne() {
             Flow.Subscription current = upstream.get();
             if (current != null) {
                 current.request(1);
             } else {
-                for (;;) {
-                    long r = requested.get();
-                    long u = r + 1;
-                    if (u < 0L) {
-                        u = Long.MAX_VALUE;
-                    }
-                    if (requested.compareAndSet(r, u)) {
-                        current = upstream.get();
-                        if (current != null) {
-                            u = requested.getAndSet(0L);
-                            if (u != 0L) {
-                                current.request(u);
-                            }
-                        }
-                        break;
+                requested.getAndIncrement();
+                current = upstream.get();
+                if (current != null) {
+                    long r = requested.getAndSet(0L);
+                    if (r != 0L) {
+                        current.request(r);
                     }
                 }
             }
@@ -155,6 +154,20 @@ final class AsyncFromFlowPublisher<T> implements AsyncEnumerable<T> {
                     }
                 } while (decrementAndGet() != 0);
             }
+        }
+    }
+
+    enum CancelledSubscription implements Flow.Subscription {
+        CANCELLED;
+
+        @Override
+        public void request(long n) {
+            // Deliberately NO-OP
+        }
+
+        @Override
+        public void cancel() {
+            // Deliberately NO-OP
         }
     }
 }

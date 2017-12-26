@@ -57,4 +57,8 @@ enum AsyncEnumeratorHelper implements AsyncEnumerator<Object> {
             }
         }
     }
+
+    static boolean isCancelled(AsyncEnumerator<?> enumerator) {
+        return enumerator == CANCELLED;
+    }
 }

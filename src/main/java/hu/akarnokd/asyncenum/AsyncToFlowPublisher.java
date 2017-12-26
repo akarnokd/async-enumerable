@@ -87,7 +87,7 @@ final class AsyncToFlowPublisher<T> implements Flow.Publisher<T> {
         @Override
         public void cancel() {
             cancelled = true;
-            // TODO cancel enumerator
+            enumerator.cancel();
             if (getAndIncrement() == 0) {
                 item = null;
             }

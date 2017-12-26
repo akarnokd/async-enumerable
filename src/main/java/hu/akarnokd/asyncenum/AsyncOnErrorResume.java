@@ -17,6 +17,7 @@
 package hu.akarnokd.asyncenum;
 
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 
 final class AsyncOnErrorResume<T> implements AsyncEnumerable<T> {
@@ -39,7 +40,7 @@ final class AsyncOnErrorResume<T> implements AsyncEnumerable<T> {
 
         final Function<? super Throwable, ? extends AsyncEnumerable<? extends T>> resumeMapper;
 
-        AsyncEnumerator<T> source;
+        final AtomicReference<AsyncEnumerator<T>> source;
 
         T result;
 
@@ -48,7 +49,7 @@ final class AsyncOnErrorResume<T> implements AsyncEnumerable<T> {
         boolean inFallback;
 
         OnErrorResumeEnumerator(AsyncEnumerator<T> source, Function<? super Throwable, ? extends AsyncEnumerable<? extends T>> resumeMapper) {
-            this.source = source;
+            this.source = new AtomicReference<>(source);
             this.resumeMapper = resumeMapper;
         }
 
@@ -56,7 +57,7 @@ final class AsyncOnErrorResume<T> implements AsyncEnumerable<T> {
         public CompletionStage<Boolean> moveNext() {
             CompletableFuture<Boolean> cf = new CompletableFuture<>();
             completable = cf;
-            source.moveNext().whenComplete(this);
+            source.getPlain().moveNext().whenComplete(this);
             return cf;
         }
 
@@ -79,18 +80,24 @@ final class AsyncOnErrorResume<T> implements AsyncEnumerable<T> {
                 if (throwable != null) {
                     inFallback = true;
                     result = null;
-                    source = (AsyncEnumerator<T>)resumeMapper.apply(throwable).enumerator();
-                    source.moveNext().whenComplete(this);
+                    if (AsyncEnumeratorHelper.replace(source, (AsyncEnumerator<T>)resumeMapper.apply(throwable).enumerator())) {
+                        source.getPlain().moveNext().whenComplete(this);
+                    }
                     return;
                 }
             }
             if (aBoolean) {
-                result = source.current();
+                result = source.getPlain().current();
                 cf.complete(true);
             } else {
                 result = null;
                 cf.complete(false);
             }
+        }
+
+        @Override
+        public void cancel() {
+            AsyncEnumeratorHelper.cancel(source);
         }
     }
 }

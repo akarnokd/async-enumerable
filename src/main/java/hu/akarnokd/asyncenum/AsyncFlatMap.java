@@ -57,6 +57,8 @@ final class AsyncFlatMap<T, R> implements AsyncEnumerable<R> {
 
         final AtomicInteger upstreamWip;
 
+        final AtomicReference<Throwable> error;
+
         R current;
 
         volatile boolean cancelled;
@@ -70,6 +72,7 @@ final class AsyncFlatMap<T, R> implements AsyncEnumerable<R> {
             this.active = new AtomicInteger(1);
             this.inners = new ConcurrentHashMap<>();
             this.upstreamWip = new AtomicInteger();
+            this.error = new AtomicReference<>();
         }
 
         @Override
@@ -93,6 +96,10 @@ final class AsyncFlatMap<T, R> implements AsyncEnumerable<R> {
             do {
                 CompletableFuture<Boolean> nx = next.get();
                 if (nx != null) {
+                    if (error.get() != null) {
+                        nx.completeExceptionally(error.get());
+                        return;
+                    }
                     int n = active.get();
                     InnerAsyncEnumerator<R> inner = queue.peek();
 
@@ -123,20 +130,35 @@ final class AsyncFlatMap<T, R> implements AsyncEnumerable<R> {
             drain();
         }
 
-        void moveNextUpstream() {
-            if (upstreamWip.getAndIncrement() != 0) {
-                return;
-            }
+        void error(InnerAsyncEnumerator<R> inner, Throwable ex) {
+            error.compareAndSet(null, ex);
+            cancel();
+            active.decrementAndGet();
+            drain();
+        }
 
-            do {
-                upstream.moveNext().whenComplete(this);
-            } while (upstreamWip.decrementAndGet() != 0);
+        void moveNextUpstream() {
+            if (upstreamWip.getAndIncrement() == 0) {
+                do {
+                    upstream.moveNext().whenComplete(this);
+                } while (upstreamWip.decrementAndGet() != 0);
+            }
+        }
+
+        void cancelAllInner() {
+            for (InnerAsyncEnumerator<R> inner : inners.keySet()) {
+                inner.cancel();
+            }
         }
 
         @Override
         public void accept(Boolean aBoolean, Throwable throwable) {
             if (throwable != null) {
-                // TODO manage errors
+                error.compareAndSet(null, throwable);
+                cancelAllInner();
+                active.decrementAndGet();
+                drain();
+                return;
             }
             if (aBoolean) {
                 T t = upstream.current();
@@ -160,9 +182,8 @@ final class AsyncFlatMap<T, R> implements AsyncEnumerable<R> {
         @Override
         public void cancel() {
             cancelled = true;
-            for (InnerAsyncEnumerator<R> inner : inners.keySet()) {
-                inner.cancel();
-            }
+            upstream.cancel();
+            cancelAllInner();
         }
 
         static final class InnerAsyncEnumerator<R> extends AtomicInteger implements BiConsumer<Boolean, Throwable> {
@@ -181,19 +202,17 @@ final class AsyncFlatMap<T, R> implements AsyncEnumerable<R> {
             }
 
             void moveNext() {
-                if (getAndIncrement() != 0) {
-                    return;
+                if (getAndIncrement() == 0) {
+                    do {
+                        source.moveNext().whenComplete(this);
+                    } while (decrementAndGet() != 0);
                 }
-
-                do {
-                    source.moveNext().whenComplete(this);
-                } while (decrementAndGet() != 0);
             }
 
             @Override
             public void accept(Boolean hasMore, Throwable throwable) {
                 if (throwable != null) {
-                    // TODO error management
+                    parent.error(this, throwable);
                     return;
                 }
                 if (hasMore) {

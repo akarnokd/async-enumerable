@@ -34,6 +34,14 @@ public class AsyncFilterTest {
         assertEquals(Arrays.asList(2, 4, 6, 8, 10), list);
     }
 
+    @Test
+    public void error() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.error(new RuntimeException("forced failure"))
+                .filter(v -> true),
+                RuntimeException.class, "forced failure"
+        );
+    }
 }
 
 

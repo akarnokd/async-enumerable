@@ -56,4 +56,26 @@ public class AsyncTimeoutTest {
             scheduler.shutdownNow();
         }
     }
+
+    @Test
+    public void error() {
+        TestHelper.withScheduler(executor -> {
+            TestHelper.assertFailure(
+                    AsyncEnumerable.error(new RuntimeException("forced failure"))
+                            .timeout(1, TimeUnit.MINUTES, executor),
+                    RuntimeException.class, "forced failure"
+            );
+        });
+    }
+
+    @Test
+    public void timeoutNoFallback() {
+        TestHelper.withScheduler(executor -> {
+            TestHelper.assertFailure(
+                    AsyncEnumerable.never()
+                            .timeout(1, TimeUnit.MILLISECONDS, executor),
+                    TimeoutException.class
+            );
+        });
+    }
 }

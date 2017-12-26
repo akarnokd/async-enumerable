@@ -65,9 +65,10 @@ final class AsyncTakeUntil<T, U> implements AsyncEnumerable<T> {
                     return curr;
                 }
                 CompletableFuture<Boolean> next = new CompletableFuture<>();
+                AsyncEnumerator<T> en = source.getAcquire();
                 if (compareAndSet(curr, next)) {
                     current = next;
-                    source.getPlain().moveNext().whenComplete(this);
+                    en.moveNext().whenComplete(this);
                     return next;
                 }
             }
@@ -93,9 +94,9 @@ final class AsyncTakeUntil<T, U> implements AsyncEnumerable<T> {
         }
 
         public void acceptOther(Boolean aBoolean, Throwable throwable) {
-            AsyncEnumeratorHelper.cancel(source);
             if (throwable == null) {
                 CompletableFuture<Boolean> cf = getAndSet(STOP);
+                AsyncEnumeratorHelper.cancel(source);
                 if (cf != null && !(cf instanceof TerminalCompletableFuture)) {
                     cf.complete(false);
                 }
@@ -103,10 +104,17 @@ final class AsyncTakeUntil<T, U> implements AsyncEnumerable<T> {
                 TerminalCompletableFuture tf = new TerminalCompletableFuture();
                 tf.completeExceptionally(throwable);
                 CompletableFuture<Boolean> cf = getAndSet(tf);
+                AsyncEnumeratorHelper.cancel(source);
                 if (cf != null && !(cf instanceof TerminalCompletableFuture)) {
                     cf.completeExceptionally(throwable);
                 }
             }
+        }
+
+        @Override
+        public void cancel() {
+            other.cancel();
+            AsyncEnumeratorHelper.cancel(source);
         }
 
         static final TerminalCompletableFuture STOP = new TerminalCompletableFuture();

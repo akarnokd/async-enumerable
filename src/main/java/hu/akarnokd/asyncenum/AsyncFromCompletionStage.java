@@ -16,8 +16,8 @@
 
 package hu.akarnokd.asyncenum;
 
-import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
+import java.util.concurrent.*;
+import java.util.function.*;
 
 final class AsyncFromCompletionStage<T> implements AsyncEnumerable<T> {
 
@@ -33,9 +33,11 @@ final class AsyncFromCompletionStage<T> implements AsyncEnumerable<T> {
     }
 
     static final class FromCompletionStageAsyncEnumerable<T>
-            implements AsyncEnumerator<T>, Function<T, Boolean> {
+            implements AsyncEnumerator<T>, BiConsumer<T, Throwable> {
 
         final CompletionStage<T> stage;
+
+        CompletableFuture<Boolean> completable;
 
         boolean once;
 
@@ -52,7 +54,10 @@ final class AsyncFromCompletionStage<T> implements AsyncEnumerable<T> {
                 return FALSE;
             }
             once = true;
-            return stage.thenApply(this);
+            CompletableFuture<Boolean> cf = new CompletableFuture<>();
+            completable = cf;
+            stage.whenComplete(this);
+            return cf;
         }
 
         @Override
@@ -61,9 +66,13 @@ final class AsyncFromCompletionStage<T> implements AsyncEnumerable<T> {
         }
 
         @Override
-        public Boolean apply(T t) {
-            result = t;
-            return true;
+        public void accept(T t, Throwable throwable) {
+            if (throwable != null) {
+                completable.completeExceptionally(throwable);
+            } else {
+                result = t;
+                completable.complete(true);
+            }
         }
     }
 }

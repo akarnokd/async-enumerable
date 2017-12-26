@@ -20,6 +20,8 @@ import org.junit.Test;
 
 import java.util.*;
 
+import static hu.akarnokd.asyncenum.TestHelper.assertFailure;
+import static hu.akarnokd.asyncenum.TestHelper.assertResult;
 import static org.junit.Assert.assertEquals;
 
 public class AsyncSkipTest {
@@ -58,5 +60,21 @@ public class AsyncSkipTest {
                 .get();
 
         assertEquals(Arrays.asList(999_998, 999_999, 1_000_000), list);
+    }
+
+    @Test
+    public void error() {
+        assertFailure(AsyncEnumerable.error(new RuntimeException("forced failure"))
+            .skip(1),
+                RuntimeException.class, "forced failure"
+        );
+    }
+
+    @Test
+    public void take() {
+        assertResult(
+                AsyncEnumerable.range(1, 5).skip(1).take(3),
+                2, 3, 4
+        );
     }
 }

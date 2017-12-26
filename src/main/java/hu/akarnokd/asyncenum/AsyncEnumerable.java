@@ -41,12 +41,7 @@ public interface AsyncEnumerable<T> {
     /** Constant and already completed CompletionStage signalling {@code false}. */
     CompletionStage<Boolean> FALSE = CompletableFuture.completedStage(false);
 
-    CompletionStage<Boolean> CANCELLED = CompletableFuture.failedStage(new CancellationException() {
-        @Override
-        public synchronized Throwable fillInStackTrace() {
-            return this;
-        }
-    });
+    CompletionStage<Boolean> CANCELLED = CompletableFuture.failedStage(new CancelledEnumeratorException());
 
     // -------------------------------------------------------------------------------------
     // Static factories

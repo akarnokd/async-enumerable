@@ -87,8 +87,12 @@ final class AsyncZipArray<T, R> implements AsyncEnumerable<R> {
 
             if (throwable != null) {
                 completable = null;
+                for (int i = 0; i < sources.length; i++) {
+                    if (i != index) {
+                        sources[i].cancel();
+                    }
+                }
                 cf.completeExceptionally(throwable);
-                // TODO cancel the others
                 return;
             }
 
@@ -101,8 +105,19 @@ final class AsyncZipArray<T, R> implements AsyncEnumerable<R> {
                 }
             } else {
                 result = null;
+                for (int i = 0; i < sources.length; i++) {
+                    if (i != index) {
+                        sources[i].cancel();
+                    }
+                }
                 cf.complete(false);
-                // TODO cancel the others
+            }
+        }
+
+        @Override
+        public void cancel() {
+            for (AsyncEnumerator<? extends T> source : sources) {
+                source.cancel();
             }
         }
 
