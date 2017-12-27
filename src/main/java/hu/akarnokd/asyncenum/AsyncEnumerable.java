@@ -120,6 +120,18 @@ public interface AsyncEnumerable<T> {
         return new AsyncInterval(initialDelay, period, unit, executor);
     }
 
+    static <T> AsyncEnumerable<T> fromCallable(Callable<? extends T> callable) {
+        return new AsyncFromCallable<>(callable);
+    }
+
+    static <T> AsyncEnumerable<T> repeatItem(T item) {
+        return new AsyncRepeatItem<>(item);
+    }
+
+    static <T> AsyncEnumerable<T> repeatCallable(Callable<? extends T> callable) {
+        return new AsyncRepeatCallable<>(callable);
+    }
+
     // -------------------------------------------------------------------------------------
     // Instance transformations
 
@@ -236,6 +248,54 @@ public interface AsyncEnumerable<T> {
 
     default AsyncEnumerable<T> doFinally(Runnable onFinally) {
         return new AsyncDoFinally<>(this, onFinally);
+    }
+
+    default AsyncEnumerable<T> ignoreElements() {
+        return new AsyncIgnoreElements<>(this);
+    }
+
+    default AsyncEnumerable<T> doOnCancel(Runnable onCancel) {
+        return new AsyncDoOnCancel<>(this, onCancel);
+    }
+
+    default AsyncEnumerable<T> repeat(long times) {
+        return repeat(times, () -> false);
+    }
+
+    default AsyncEnumerable<T> repeat(BooleanSupplier stop) {
+        return repeat(Long.MAX_VALUE, stop);
+    }
+
+    default AsyncEnumerable<T> repeat(long times, BooleanSupplier stop) {
+        return new AsyncRepeat<>(this, times, stop);
+    }
+
+    default AsyncEnumerable<T> retry(long times) {
+        return retry(times, e -> true);
+    }
+
+    default AsyncEnumerable<T> retry(Predicate<? super Throwable> predicate) {
+        return retry(Long.MAX_VALUE, predicate);
+    }
+
+    default AsyncEnumerable<T> retry(long times, Predicate<? super Throwable> predicate) {
+        return new AsyncRetry<>(this, times, predicate);
+    }
+
+    default AsyncEnumerable<T> repeatWhen(Supplier<? extends CompletionStage<Boolean>> completer) {
+        return repeatWhen(() -> null, s -> completer.get());
+    }
+
+    default <S> AsyncEnumerable<T> repeatWhen(Supplier<S> stateSupplier, Function<? super S, ? extends CompletionStage<Boolean>> completer) {
+        return new AsyncRepeatWhen<>(this, stateSupplier, completer);
+    }
+
+    default <S> AsyncEnumerable<T> retryWhen(Function<? super Throwable, ? extends CompletionStage<Boolean>> completer) {
+        return retryWhen(() -> null, (s, e) -> completer.apply(e));
+    }
+
+    default <S> AsyncEnumerable<T> retryWhen(Supplier<S> stateSupplier, BiFunction<? super S, ? super Throwable, ? extends CompletionStage<Boolean>> completer) {
+        return new AsyncRetryWhen<T, S>(this, stateSupplier, completer);
     }
 
     // -------------------------------------------------------------------------------------
