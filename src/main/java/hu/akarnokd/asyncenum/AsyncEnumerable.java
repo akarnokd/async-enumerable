@@ -298,6 +298,14 @@ public interface AsyncEnumerable<T> {
         return new AsyncRetryWhen<T, S>(this, stateSupplier, completer);
     }
 
+    default <K> AsyncEnumerable<GroupedAsyncEnumerable<T, K>> groupBy(Function<? super T, ? extends K> keySelector) {
+        return groupBy(keySelector, v -> v);
+    }
+
+    default <K, V> AsyncEnumerable<GroupedAsyncEnumerable<V, K>> groupBy(Function<? super T, ? extends K> keySelector, Function<? super T, ? extends V> valueSelector) {
+        return new AsyncGroupBy<>(this, keySelector, valueSelector);
+    }
+
     // -------------------------------------------------------------------------------------
     // Instance consumers
 
