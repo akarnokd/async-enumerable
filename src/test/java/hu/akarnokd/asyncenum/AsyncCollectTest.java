@@ -18,7 +18,10 @@ package hu.akarnokd.asyncenum;
 
 import org.junit.Test;
 
-import java.util.HashMap;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertTrue;
 
@@ -33,5 +36,36 @@ public class AsyncCollectTest {
         } catch (RuntimeException ex) {
             assertTrue(ex.toString(), ex.getMessage().equals("forced failure"));
         }
+    }
+
+    @Test
+    public void streamCollector() {
+        TestHelper.assertResult(
+                AsyncEnumerable.range(1, 5)
+                .collect(Collectors.toList()),
+                Arrays.asList(1, 2, 3, 4, 5)
+        );
+    }
+
+    @Test
+    public void streamCollectorError() {
+        TestHelper.assertFailure(
+                AsyncEnumerable.error(new IOException())
+                .collect(Collectors.toList()),
+                IOException.class
+        );
+    }
+
+    @Test
+    public void cancel() {
+        AtomicBoolean bool = new AtomicBoolean();
+
+        AsyncEnumerable.never()
+                .doOnCancel(() -> bool.set(true))
+                .collect(Collectors.toList())
+                .enumerator()
+                .cancel();
+
+        assertTrue(bool.get());
     }
 }

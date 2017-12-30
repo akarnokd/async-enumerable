@@ -19,6 +19,7 @@ package hu.akarnokd.asyncenum;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.*;
+import java.util.stream.*;
 
 /**
  * Represents an possibly asynchronous, cold-deferred, source of zero or more items
@@ -130,6 +131,10 @@ public interface AsyncEnumerable<T> {
 
     static <T> AsyncEnumerable<T> repeatCallable(Callable<? extends T> callable) {
         return new AsyncRepeatCallable<>(callable);
+    }
+
+    static <T> AsyncEnumerable<T> fromStream(Stream<T> stream) {
+        return new AsyncFromStream<>(stream);
     }
 
     // -------------------------------------------------------------------------------------
@@ -306,6 +311,25 @@ public interface AsyncEnumerable<T> {
         return new AsyncGroupBy<>(this, keySelector, valueSelector);
     }
 
+    default AsyncEnumerable<T> skipWhile(Predicate<? super T> predicate) {
+        return new AsyncSkipWhile<>(this, predicate);
+    }
+
+    default AsyncEnumerable<T> takeWhile(Predicate<? super T> predicate) {
+        return new AsyncTakeWhile<>(this, predicate);
+    }
+
+    default AsyncEnumerable<T> takeUntil(Predicate<? super T> stopPredicate) {
+        return new AsyncTakeUntilPredicate<>(this, stopPredicate);
+    }
+
+    default <A, R> AsyncEnumerable<R> collect(Collector<T, A, R> collector) {
+        return new AsyncCollectWith<>(this, collector);
+    }
+
+    default AsyncEnumerable<T> cache() {
+        return new AsyncCache<>(this);
+    }
     // -------------------------------------------------------------------------------------
     // Instance consumers
 
@@ -334,5 +358,13 @@ public interface AsyncEnumerable<T> {
         AsyncBlockingLast<T> bl = new AsyncBlockingLast<>(enumerator());
         bl.moveNext();
         return bl.blockingGet();
+    }
+
+    default Iterable<T> blockingIterable() {
+        return new AsyncBlockingIterable<>(this);
+    }
+
+    default Stream<T> blockingStream() {
+        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(blockingIterable().iterator(), 0), false);
     }
 }
