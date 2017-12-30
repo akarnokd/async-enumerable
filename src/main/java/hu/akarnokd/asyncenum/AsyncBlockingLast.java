@@ -16,7 +16,7 @@
 
 package hu.akarnokd.asyncenum;
 
-import java.util.NoSuchElementException;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -69,6 +69,7 @@ final class AsyncBlockingLast<T> extends CountDownLatch implements BiConsumer<Bo
             try {
                 await();
             } catch (InterruptedException ex) {
+                source.cancel();
                 throw new RuntimeException(ex);
             }
         }
@@ -80,5 +81,25 @@ final class AsyncBlockingLast<T> extends CountDownLatch implements BiConsumer<Bo
             return result;
         }
         throw new NoSuchElementException();
+    }
+
+
+    Optional<T> blockingGetOptional() {
+        if (getCount() != 0) {
+            try {
+                await();
+            } catch (InterruptedException ex) {
+                source.cancel();
+                throw new RuntimeException(ex);
+            }
+        }
+        Throwable ex = error;
+        if (ex != null) {
+            throw ThrowableHelper.wrapOrThrow(ex);
+        }
+        if (hasValue) {
+            return Optional.ofNullable(result);
+        }
+        return Optional.empty();
     }
 }

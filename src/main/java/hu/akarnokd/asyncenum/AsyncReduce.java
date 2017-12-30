@@ -20,63 +20,72 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.*;
 
-final class AsyncCollect<T, C> implements AsyncEnumerable<C> {
+final class AsyncReduce<T> implements AsyncEnumerable<T> {
 
     final AsyncEnumerable<T> source;
 
-    final Supplier<C> supplier;
+    final BiFunction<T, T, T> reducer;
 
-    final BiConsumer<C, T> collector;
-
-    AsyncCollect(AsyncEnumerable<T> source, Supplier<C> supplier, BiConsumer<C, T> collector) {
+    AsyncReduce(AsyncEnumerable<T> source, BiFunction<T, T, T> reducer) {
         this.source = source;
-        this.supplier = supplier;
-        this.collector = collector;
+        this.reducer = reducer;
     }
 
     @Override
-    public AsyncEnumerator<C> enumerator() {
-        return new CollectEnumerator<>(source.enumerator(), collector, supplier.get());
+    public AsyncEnumerator<T> enumerator() {
+        return new ReduceEnumerator<>(source.enumerator(), reducer);
     }
 
-    static final class CollectEnumerator<T, C> extends AtomicInteger
-    implements AsyncEnumerator<C>, BiConsumer<Boolean, Throwable> {
+    static final class ReduceEnumerator<T>
+            extends AtomicInteger
+            implements AsyncEnumerator<T>, BiConsumer<Boolean, Throwable> {
 
         final AsyncEnumerator<T> source;
 
-        final BiConsumer<C, T> collector;
+        final BiFunction<T, T, T> reducer;
 
-        C collection;
+        boolean once;
 
-        C result;
+        boolean moveNextOnce;
 
-        CompletableFuture<Boolean> cf;
+        T accumulator;
+
+        T result;
+
+        CompletableFuture<Boolean> completable;
 
         volatile boolean cancelled;
 
-        CollectEnumerator(AsyncEnumerator<T> source, BiConsumer<C, T> collector, C collection) {
+        ReduceEnumerator(AsyncEnumerator<T> source, BiFunction<T, T, T> reducer) {
             this.source = source;
-            this.collector = collector;
-            this.collection = collection;
+            this.reducer = reducer;
         }
 
         @Override
         public CompletionStage<Boolean> moveNext() {
-            if (collection == null) {
+            if (moveNextOnce) {
                 result = null;
                 return FALSE;
             }
-            cf = new CompletableFuture<>();
-            collectSource();
+            moveNextOnce = true;
+            CompletableFuture<Boolean> cf = new CompletableFuture<>();
+            completable = cf;
+            nextSource();
             return cf;
         }
 
         @Override
-        public C current() {
+        public T current() {
             return result;
         }
 
-        void collectSource() {
+        @Override
+        public void cancel() {
+            cancelled = true;
+            source.cancel();
+        }
+
+        void nextSource() {
             if (getAndIncrement() == 0) {
                 do {
                     if (cancelled) {
@@ -90,25 +99,24 @@ final class AsyncCollect<T, C> implements AsyncEnumerable<C> {
         @Override
         public void accept(Boolean aBoolean, Throwable throwable) {
             if (throwable != null) {
-                collection = null;
-                cf.completeExceptionally(throwable);
+                accumulator = null;
+                completable.completeExceptionally(throwable);
                 return;
             }
 
             if (aBoolean) {
-                collector.accept(collection, source.current());
-                collectSource();
+                if (once) {
+                    accumulator = reducer.apply(accumulator, source.current());
+                } else {
+                    once = true;
+                    accumulator = source.current();
+                }
+                nextSource();
             } else {
-                result = collection;
-                collection = null;
-                cf.complete(true);
+                result = accumulator;
+                accumulator = null;
+                completable.complete(once);
             }
-        }
-
-        @Override
-        public void cancel() {
-            cancelled = true;
-            source.cancel();
         }
     }
 }

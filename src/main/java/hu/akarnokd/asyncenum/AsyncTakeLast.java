@@ -16,43 +16,72 @@
 
 package hu.akarnokd.asyncenum;
 
+import java.util.ArrayDeque;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 
-final class AsyncIgnoreElements<T> implements AsyncEnumerable<T> {
+final class AsyncTakeLast<T> implements AsyncEnumerable<T> {
 
     final AsyncEnumerable<T> source;
 
-    AsyncIgnoreElements(AsyncEnumerable<T> source) {
+    final int n;
+
+    AsyncTakeLast(AsyncEnumerable<T> source, int n) {
         this.source = source;
+        this.n = n;
     }
+
 
     @Override
     public AsyncEnumerator<T> enumerator() {
-        return new IgnoreElementsEnumerator<>(source.enumerator());
+        return new TakeLastEnumerator<>(source.enumerator(), n);
     }
 
-    static final class IgnoreElementsEnumerator<T>
+    static final class TakeLastEnumerator<T>
             extends AtomicInteger
             implements AsyncEnumerator<T>, BiConsumer<Boolean, Throwable> {
 
         final AsyncEnumerator<T> source;
 
+        final ArrayDeque<T> deque;
+
+        final int n;
+
+        T result;
+
         CompletableFuture<Boolean> completable;
 
         volatile boolean cancelled;
 
-        IgnoreElementsEnumerator(AsyncEnumerator<T> source) {
+        boolean replayMode;
+
+        TakeLastEnumerator(AsyncEnumerator<T> source, int n) {
             this.source = source;
+            this.n = n;
+            this.deque = new ArrayDeque<>();
         }
 
         @Override
         public CompletionStage<Boolean> moveNext() {
-            CompletableFuture<Boolean> cf = new CompletableFuture<>();
-            completable = cf;
-            nextSource();
-            return cf;
+            result = null;
+            if (replayMode) {
+                if (deque.isEmpty()) {
+                    return FALSE;
+                }
+                result = deque.poll();
+                return TRUE;
+            } else {
+                CompletableFuture<Boolean> cf = new CompletableFuture<>();
+                completable = cf;
+                nextSource();
+                return cf;
+            }
+        }
+
+        @Override
+        public T current() {
+            return result;
         }
 
         void nextSource() {
@@ -67,11 +96,6 @@ final class AsyncIgnoreElements<T> implements AsyncEnumerable<T> {
         }
 
         @Override
-        public T current() {
-            return null; // elements are ignored
-        }
-
-        @Override
         public void cancel() {
             cancelled = true;
             source.cancel();
@@ -80,13 +104,24 @@ final class AsyncIgnoreElements<T> implements AsyncEnumerable<T> {
         @Override
         public void accept(Boolean aBoolean, Throwable throwable) {
             if (throwable != null) {
+                deque.clear();
                 completable.completeExceptionally(throwable);
                 return;
             }
+
             if (aBoolean) {
+                if (n == deque.size()) {
+                    deque.poll();
+                }
+                deque.offer(source.current());
                 nextSource();
             } else {
-                completable.complete(false);
+                if (deque.isEmpty()) {
+                    completable.complete(false);
+                }
+                result = deque.poll();
+                replayMode = true;
+                completable.complete(true);
             }
         }
     }

@@ -19,50 +19,47 @@ package hu.akarnokd.asyncenum;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
-public class AsyncIgnoreElementsTest {
+public class AsyncSkipLastTest {
 
     @Test
     public void simple() {
         TestHelper.assertResult(
                 AsyncEnumerable.range(1, 5)
-                .ignoreElements()
+                .skipLast(2),
+                1, 2, 3
         );
     }
 
     @Test
-    public void cancel() {
-        AtomicBoolean cancelled = new AtomicBoolean();
-        AsyncEnumerable.never()
-                .doOnCancel(() -> cancelled.set(true))
-                .ignoreElements()
-                .enumerator()
-                .cancel();
+    public void simpleNoSkip() {
+        TestHelper.assertResult(
+                AsyncEnumerable.range(1, 5)
+                        .skipLast(0),
+                1, 2, 3, 4, 5
+        );
+    }
 
-        assertTrue(cancelled.get());
+
+    @Test
+    public void simpleNoSkipAll() {
+        TestHelper.assertResult(
+                AsyncEnumerable.range(1, 5)
+                        .skipLast(6)
+        );
     }
 
     @Test
     public void error() {
         TestHelper.assertFailure(
                 AsyncEnumerable.error(new IOException())
-                .ignoreElements(),
+                .skipLast(2),
                 IOException.class
         );
     }
 
     @Test
-    public void nullCurrent() {
-        assertNull(AsyncEnumerable.never().ignoreElements().enumerator().current());
-    }
-
-    @Test(timeout = 5000)
     public void cancelRace() {
-        TestHelper.cancelRace(AsyncEnumerable::ignoreElements);
+        TestHelper.cancelRace(ae -> ae.skipLast(2));
     }
-
 }

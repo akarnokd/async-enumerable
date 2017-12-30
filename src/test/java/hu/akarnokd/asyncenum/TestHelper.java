@@ -20,7 +20,7 @@ import java.lang.reflect.Constructor;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
-import java.util.function.Consumer;
+import java.util.function.*;
 
 import static org.junit.Assert.*;
 
@@ -171,5 +171,18 @@ public final class TestHelper {
             throw new AssertionError("Wrong exception type or message", ex);
         }
         throw new AssertionError("Not an utility class!");
+    }
+
+    public static <U> void cancelRace(Function<? super AsyncEnumerable<Integer>, ? extends AsyncEnumerable<U>> transformer) {
+        TestHelper.withExecutor(executor -> {
+            for (int i = 0; i < 10000; i++) {
+                AsyncEnumerator<U> en = AsyncEnumerable.range(1, 1_000_000_000)
+                        .compose(transformer)
+                        .enumerator();
+
+                TestHelper.race(en::moveNext,
+                        en::cancel, executor);
+            }
+        });
     }
 }

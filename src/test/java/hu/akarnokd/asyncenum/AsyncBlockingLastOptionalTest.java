@@ -20,41 +20,53 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.NoSuchElementException;
+import java.util.concurrent.*;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
-public class AsyncBlockingFirstTest {
-
-    @Test
-    public void utilityClass() {
-        TestHelper.checkUtility(AsyncBlockingFirst.class);
-    }
-
-    @Test(expected = NoSuchElementException.class)
-    public void empty() {
-        AsyncEnumerable.empty().blockingFirst();
-    }
+public class AsyncBlockingLastOptionalTest {
 
     @Test
-    public void interrupt() {
+    public void interrupted() {
         Thread.currentThread().interrupt();
 
         try {
-            AsyncEnumerable.never().blockingFirst();
+            AsyncEnumerable.never()
+                    .blockingLastOptional();
             fail("Should have thrown");
         } catch (RuntimeException ex) {
-            assertTrue("" + ex, ex.getCause() instanceof InterruptedException);
+            assertTrue(ex.toString(), ex.getCause() instanceof InterruptedException);
+        }
+    }
+
+    @Test(expected = NoSuchElementException.class)
+    public void asyncEmpty() {
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+        try {
+            AsyncEnumerable.timer(200, TimeUnit.MILLISECONDS, executor)
+                    .filter(v -> false)
+                    .blockingLastOptional().get();
+        } finally {
+            executor.shutdownNow();
         }
     }
 
     @Test
+    public void last() {
+        assertEquals(5,
+                AsyncEnumerable.range(1, 5)
+                .blockingLastOptional().get().intValue());
+    }
+
+
+    @Test
     public void checkedException() {
         try {
-            AsyncEnumerable.error(new IOException()).blockingFirst();
+            AsyncEnumerable.error(new IOException()).blockingLastOptional();
             fail("Should have thrown");
         } catch (RuntimeException ex) {
             assertTrue("" + ex, ex.getCause() instanceof IOException);
         }
     }
+
 }

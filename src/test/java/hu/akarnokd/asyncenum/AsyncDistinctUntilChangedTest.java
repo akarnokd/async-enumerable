@@ -19,50 +19,31 @@ package hu.akarnokd.asyncenum;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Objects;
 
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
-public class AsyncIgnoreElementsTest {
+public class AsyncDistinctUntilChangedTest {
 
     @Test
     public void simple() {
         TestHelper.assertResult(
-                AsyncEnumerable.range(1, 5)
-                .ignoreElements()
+                AsyncEnumerable.fromArray(1, 2, 2, 3, 3, 4, 4, 4, 5, 1, 2, 5)
+                .distinctUntilChanged(),
+                1, 2, 3, 4, 5, 1, 2, 5
         );
-    }
-
-    @Test
-    public void cancel() {
-        AtomicBoolean cancelled = new AtomicBoolean();
-        AsyncEnumerable.never()
-                .doOnCancel(() -> cancelled.set(true))
-                .ignoreElements()
-                .enumerator()
-                .cancel();
-
-        assertTrue(cancelled.get());
     }
 
     @Test
     public void error() {
         TestHelper.assertFailure(
                 AsyncEnumerable.error(new IOException())
-                .ignoreElements(),
+                .distinctUntilChanged(v -> v),
                 IOException.class
         );
     }
 
     @Test
-    public void nullCurrent() {
-        assertNull(AsyncEnumerable.never().ignoreElements().enumerator().current());
-    }
-
-    @Test(timeout = 5000)
     public void cancelRace() {
-        TestHelper.cancelRace(AsyncEnumerable::ignoreElements);
+        TestHelper.cancelRace(ae -> ae.distinctUntilChanged(v -> v, Objects::equals));
     }
 
 }

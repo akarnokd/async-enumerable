@@ -18,37 +18,55 @@ package hu.akarnokd.asyncenum;
 
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
+import java.util.function.*;
 
-final class AsyncIgnoreElements<T> implements AsyncEnumerable<T> {
+final class AsyncDistinctUntilChanged<T, K> implements AsyncEnumerable<T> {
 
     final AsyncEnumerable<T> source;
 
-    AsyncIgnoreElements(AsyncEnumerable<T> source) {
+    final Function<? super T, ? extends K> keySelector;
+
+    final BiPredicate<? super K, ? super K> comparer;
+
+    AsyncDistinctUntilChanged(AsyncEnumerable<T> source, Function<? super T, ? extends K> keySelector, BiPredicate<? super K, ? super K> comparer) {
         this.source = source;
+        this.keySelector = keySelector;
+        this.comparer = comparer;
     }
 
     @Override
     public AsyncEnumerator<T> enumerator() {
-        return new IgnoreElementsEnumerator<>(source.enumerator());
+        return new DistinctUntilChangedEnumerator<>(source.enumerator(), keySelector, comparer);
     }
 
-    static final class IgnoreElementsEnumerator<T>
+    static final class DistinctUntilChangedEnumerator<T, K>
             extends AtomicInteger
             implements AsyncEnumerator<T>, BiConsumer<Boolean, Throwable> {
 
         final AsyncEnumerator<T> source;
 
+        final Function<? super T, ? extends K> keySelector;
+
+        final BiPredicate<? super K, ? super K> comparer;
+
         CompletableFuture<Boolean> completable;
 
         volatile boolean cancelled;
 
-        IgnoreElementsEnumerator(AsyncEnumerator<T> source) {
+        T result;
+
+        boolean once;
+        K currentKey;
+
+        DistinctUntilChangedEnumerator(AsyncEnumerator<T> source, Function<? super T, ? extends K> keySelector, BiPredicate<? super K, ? super K> comparer) {
             this.source = source;
+            this.keySelector = keySelector;
+            this.comparer = comparer;
         }
 
         @Override
         public CompletionStage<Boolean> moveNext() {
+            result = null;
             CompletableFuture<Boolean> cf = new CompletableFuture<>();
             completable = cf;
             nextSource();
@@ -68,7 +86,7 @@ final class AsyncIgnoreElements<T> implements AsyncEnumerable<T> {
 
         @Override
         public T current() {
-            return null; // elements are ignored
+            return result;
         }
 
         @Override
@@ -80,12 +98,33 @@ final class AsyncIgnoreElements<T> implements AsyncEnumerable<T> {
         @Override
         public void accept(Boolean aBoolean, Throwable throwable) {
             if (throwable != null) {
+                currentKey = null;
                 completable.completeExceptionally(throwable);
                 return;
             }
+
             if (aBoolean) {
-                nextSource();
+                T v = source.current();
+                if (once) {
+                    K prevKey = currentKey;
+                    K nextKey = keySelector.apply(v);
+
+                    if (comparer.test(prevKey, nextKey)) {
+                        currentKey = nextKey;
+                        nextSource();
+                    } else {
+                        currentKey = nextKey;
+                        result = v;
+                        completable.complete(true);
+                    }
+                } else {
+                    once = true;
+                    currentKey = keySelector.apply(v);
+                    result = v;
+                    completable.complete(true);
+                }
             } else {
+                currentKey = null;
                 completable.complete(false);
             }
         }

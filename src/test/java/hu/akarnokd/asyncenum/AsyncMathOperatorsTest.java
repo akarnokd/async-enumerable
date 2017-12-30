@@ -69,6 +69,16 @@ public class AsyncMathOperatorsTest {
     }
 
     @Test
+    public void min() {
+        TestHelper.assertResult(
+                AsyncEnumerable.fromArray(5, 1, 3, 2, 4)
+                        .min(Comparator.<Integer>naturalOrder())
+                ,
+                1
+        );
+    }
+
+    @Test
     public void maxEmpty() {
         TestHelper.assertResult(AsyncEnumerable.<Integer>empty().max(Comparator.naturalOrder()));
     }

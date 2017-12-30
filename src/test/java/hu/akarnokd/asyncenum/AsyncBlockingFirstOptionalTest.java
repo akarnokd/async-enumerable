@@ -21,19 +21,22 @@ import org.junit.Test;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
-public class AsyncBlockingFirstTest {
-
-    @Test
-    public void utilityClass() {
-        TestHelper.checkUtility(AsyncBlockingFirst.class);
-    }
+public class AsyncBlockingFirstOptionalTest {
 
     @Test(expected = NoSuchElementException.class)
     public void empty() {
-        AsyncEnumerable.empty().blockingFirst();
+        AsyncEnumerable.empty().blockingFirstOptional().get();
+    }
+
+    @Test
+    public void simple() {
+        Integer v = AsyncEnumerable.range(1, 5)
+                .blockingFirstOptional()
+                .get();
+
+        assertEquals(1, v.intValue());
     }
 
     @Test
@@ -41,7 +44,7 @@ public class AsyncBlockingFirstTest {
         Thread.currentThread().interrupt();
 
         try {
-            AsyncEnumerable.never().blockingFirst();
+            AsyncEnumerable.never().blockingFirstOptional();
             fail("Should have thrown");
         } catch (RuntimeException ex) {
             assertTrue("" + ex, ex.getCause() instanceof InterruptedException);
@@ -51,7 +54,7 @@ public class AsyncBlockingFirstTest {
     @Test
     public void checkedException() {
         try {
-            AsyncEnumerable.error(new IOException()).blockingFirst();
+            AsyncEnumerable.error(new IOException()).blockingFirstOptional();
             fail("Should have thrown");
         } catch (RuntimeException ex) {
             assertTrue("" + ex, ex.getCause() instanceof IOException);

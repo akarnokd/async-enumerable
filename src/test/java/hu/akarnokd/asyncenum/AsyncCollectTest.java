@@ -20,8 +20,10 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
+import java.util.function.*;
+import java.util.stream.*;
 
 import static org.junit.Assert.assertTrue;
 
@@ -67,5 +69,51 @@ public class AsyncCollectTest {
                 .cancel();
 
         assertTrue(bool.get());
+    }
+
+    @Test
+    public void cancelStopsSource() {
+        TestHelper.withScheduler(executor -> {
+            TestHelper.assertResult(AsyncEnumerable.range(1, 1_000_000_000)
+                    .collect(() -> 0, (a, b) -> { })
+                    .timeout(100, TimeUnit.MILLISECONDS, executor, AsyncEnumerable.empty())
+            );
+        });
+    }
+
+
+    @Test
+    public void cancelStopsSource2() {
+        TestHelper.withScheduler(executor -> {
+            TestHelper.assertResult(AsyncEnumerable.range(1, 1_000_000_000)
+                    .collect(new Collector<Integer, Object, Object>() {
+                        @Override
+                        public Supplier<Object> supplier() {
+                            return () -> 0;
+                        }
+
+                        @Override
+                        public BiConsumer<Object, Integer> accumulator() {
+                            return (a, b) -> { };
+                        }
+
+                        @Override
+                        public BinaryOperator<Object> combiner() {
+                            return (a, b) -> a;
+                        }
+
+                        @Override
+                        public Function<Object, Object> finisher() {
+                            return a -> a;
+                        }
+
+                        @Override
+                        public Set<Characteristics> characteristics() {
+                            return Set.of(Characteristics.UNORDERED);
+                        }
+                    })
+                    .timeout(100, TimeUnit.MILLISECONDS, executor, AsyncEnumerable.empty())
+            );
+        });
     }
 }

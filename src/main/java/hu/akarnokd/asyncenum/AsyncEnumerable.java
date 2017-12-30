@@ -137,6 +137,19 @@ public interface AsyncEnumerable<T> {
         return new AsyncFromStream<>(stream);
     }
 
+    static <T> AsyncEnumerable<T> generate(Consumer<SyncEmitter<T>> generator) {
+        return generate(() -> null, (s, e) -> { generator.accept(e); return s; }, s -> { });
+    }
+
+    static <T, S> AsyncEnumerable<T> generate(Supplier<S> state, BiFunction<S, SyncEmitter<T>, S> generator) {
+        return generate(state, generator, s -> { });
+    }
+
+
+    static <T, S> AsyncEnumerable<T> generate(Supplier<S> state, BiFunction<S, SyncEmitter<T>, S> generator, Consumer<? super S> releaseState) {
+        return new AsyncGenerate<>(state, generator, releaseState);
+    }
+
     // -------------------------------------------------------------------------------------
     // Instance transformations
 
@@ -171,6 +184,10 @@ public interface AsyncEnumerable<T> {
 
     default AsyncEnumerable<Integer> sumInt(Function<? super T, ? extends Number> selector) {
         return new AsyncSumInt<>(this, selector);
+    }
+
+    default AsyncEnumerable<T> min(Comparator<? super T> comparator) {
+        return new AsyncMax<>(this, comparator.reversed());
     }
 
     default AsyncEnumerable<T> max(Comparator<? super T> comparator) {
@@ -330,6 +347,53 @@ public interface AsyncEnumerable<T> {
     default AsyncEnumerable<T> cache() {
         return new AsyncCache<>(this);
     }
+
+    default AsyncEnumerable<T> distinct() {
+        return distinct(v -> v, HashSet::new);
+    }
+
+    default <K> AsyncEnumerable<T> distinct(Function<? super T, ? extends K> keySelector) {
+        return distinct(keySelector, HashSet::new);
+    }
+
+    default <K> AsyncEnumerable<T> distinct(Function<? super T, ? extends K> keySelector, Supplier<? extends Collection<? super K>> setSupplier) {
+        return new AsyncDistinct<>(this, keySelector, setSupplier);
+    }
+
+    default AsyncEnumerable<T> distinctUntilChanged() {
+        return distinctUntilChanged(v -> v, Objects::equals);
+    }
+
+    default <K> AsyncEnumerable<T> distinctUntilChanged(Function<? super T, ? extends K> keySelector) {
+        return distinctUntilChanged(keySelector, Objects::equals);
+    }
+
+    default <K> AsyncEnumerable<T> distinctUntilChanged(Function<? super T, ? extends K> keySelector, BiPredicate<? super K, ? super K> comparer) {
+        return new AsyncDistinctUntilChanged<>(this, keySelector, comparer);
+    }
+
+    default AsyncEnumerable<T> reduce(BiFunction<T, T, T> reducer) {
+        return new AsyncReduce<>(this, reducer);
+    }
+
+    default <R> AsyncEnumerable<R> reduce(Supplier<R> initial, BiFunction<R, T, R> reducer) {
+        return new AsyncReduceWith<>(this, initial, reducer);
+    }
+
+    default AsyncEnumerable<T> skipLast(int n) {
+        if (n <= 0) {
+            return this;
+        }
+        return new AsyncSkipLast<>(this, n);
+    }
+
+    default AsyncEnumerable<T> takeLast(int n) {
+        if (n <= 0) {
+            return ignoreElements();
+        }
+        return new AsyncTakeLast<>(this, n);
+    }
+
     // -------------------------------------------------------------------------------------
     // Instance consumers
 
@@ -338,20 +402,7 @@ public interface AsyncEnumerable<T> {
     }
 
     default T blockingFirst() {
-        AsyncEnumerator<T> en = enumerator();
-        try {
-            Boolean result = en.moveNext().toCompletableFuture().get();
-            if (result) {
-                T r = en.current();
-                en.cancel();
-                return r;
-            }
-            throw new NoSuchElementException();
-        } catch (InterruptedException ex) {
-            throw new RuntimeException(ex);
-        } catch (ExecutionException ex) {
-            throw ThrowableHelper.wrapOrThrow(ex.getCause());
-        }
+        return AsyncBlockingFirst.blockingFirst(enumerator());
     }
 
     default T blockingLast() {
@@ -366,5 +417,15 @@ public interface AsyncEnumerable<T> {
 
     default Stream<T> blockingStream() {
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(blockingIterable().iterator(), 0), false);
+    }
+
+    default Optional<T> blockingFirstOptional() {
+        return AsyncBlockingFirst.blockingFirstOptional(enumerator());
+    }
+
+    default Optional<T> blockingLastOptional() {
+        AsyncBlockingLast<T> bl = new AsyncBlockingLast<>(enumerator());
+        bl.moveNext();
+        return bl.blockingGetOptional();
     }
 }

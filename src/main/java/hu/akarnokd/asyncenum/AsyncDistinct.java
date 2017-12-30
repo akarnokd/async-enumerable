@@ -16,39 +16,55 @@
 
 package hu.akarnokd.asyncenum;
 
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
+import java.util.function.*;
 
-final class AsyncIgnoreElements<T> implements AsyncEnumerable<T> {
+final class AsyncDistinct<T, K, C extends Collection<? super K>> implements AsyncEnumerable<T> {
 
     final AsyncEnumerable<T> source;
 
-    AsyncIgnoreElements(AsyncEnumerable<T> source) {
+    final Function<? super T, ? extends K> keySelector;
+
+    final Supplier<C> setSupplier;
+
+    AsyncDistinct(AsyncEnumerable<T> source, Function<? super T, ? extends K> keySelector, Supplier<C> setSupplier) {
         this.source = source;
+        this.keySelector = keySelector;
+        this.setSupplier = setSupplier;
     }
 
     @Override
     public AsyncEnumerator<T> enumerator() {
-        return new IgnoreElementsEnumerator<>(source.enumerator());
+        return new DistinctEnumerator<>(source.enumerator(), keySelector, setSupplier.get());
     }
 
-    static final class IgnoreElementsEnumerator<T>
+    static final class DistinctEnumerator<T, K>
             extends AtomicInteger
             implements AsyncEnumerator<T>, BiConsumer<Boolean, Throwable> {
 
         final AsyncEnumerator<T> source;
 
+        final Function<? super T, ? extends K> keySelector;
+
+        final Collection<? super K> set;
+
         CompletableFuture<Boolean> completable;
+
+        T result;
 
         volatile boolean cancelled;
 
-        IgnoreElementsEnumerator(AsyncEnumerator<T> source) {
+        DistinctEnumerator(AsyncEnumerator<T> source, Function<? super T, ? extends K> keySelector, Collection<? super K> set) {
             this.source = source;
+            this.keySelector = keySelector;
+            this.set = set;
         }
 
         @Override
         public CompletionStage<Boolean> moveNext() {
+            result = null;
             CompletableFuture<Boolean> cf = new CompletableFuture<>();
             completable = cf;
             nextSource();
@@ -68,7 +84,7 @@ final class AsyncIgnoreElements<T> implements AsyncEnumerable<T> {
 
         @Override
         public T current() {
-            return null; // elements are ignored
+            return result;
         }
 
         @Override
@@ -80,14 +96,24 @@ final class AsyncIgnoreElements<T> implements AsyncEnumerable<T> {
         @Override
         public void accept(Boolean aBoolean, Throwable throwable) {
             if (throwable != null) {
+                set.clear();
                 completable.completeExceptionally(throwable);
                 return;
             }
+
             if (aBoolean) {
-                nextSource();
+                T v = source.current();
+                if (set.add(keySelector.apply(v))) {
+                    result = v;
+                    completable.complete(true);
+                } else {
+                    nextSource();
+                }
             } else {
+                set.clear();
                 completable.complete(false);
             }
+
         }
     }
 }

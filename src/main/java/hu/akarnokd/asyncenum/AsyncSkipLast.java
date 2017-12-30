@@ -16,67 +16,64 @@
 
 package hu.akarnokd.asyncenum;
 
+import java.util.ArrayDeque;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.*;
+import java.util.function.BiConsumer;
 
-final class AsyncCollect<T, C> implements AsyncEnumerable<C> {
+final class AsyncSkipLast<T> implements AsyncEnumerable<T> {
 
     final AsyncEnumerable<T> source;
 
-    final Supplier<C> supplier;
+    final int n;
 
-    final BiConsumer<C, T> collector;
-
-    AsyncCollect(AsyncEnumerable<T> source, Supplier<C> supplier, BiConsumer<C, T> collector) {
+    AsyncSkipLast(AsyncEnumerable<T> source, int n) {
         this.source = source;
-        this.supplier = supplier;
-        this.collector = collector;
+        this.n = n;
     }
 
     @Override
-    public AsyncEnumerator<C> enumerator() {
-        return new CollectEnumerator<>(source.enumerator(), collector, supplier.get());
+    public AsyncEnumerator<T> enumerator() {
+        return new SkipLastEnumerator<>(source.enumerator(), n);
     }
 
-    static final class CollectEnumerator<T, C> extends AtomicInteger
-    implements AsyncEnumerator<C>, BiConsumer<Boolean, Throwable> {
+    static final class SkipLastEnumerator<T>
+            extends AtomicInteger
+            implements AsyncEnumerator<T>, BiConsumer<Boolean, Throwable> {
 
         final AsyncEnumerator<T> source;
 
-        final BiConsumer<C, T> collector;
+        final ArrayDeque<T> deque;
 
-        C collection;
+        final int n;
 
-        C result;
+        T result;
 
-        CompletableFuture<Boolean> cf;
+        CompletableFuture<Boolean> completable;
 
         volatile boolean cancelled;
 
-        CollectEnumerator(AsyncEnumerator<T> source, BiConsumer<C, T> collector, C collection) {
+        SkipLastEnumerator(AsyncEnumerator<T> source, int n) {
             this.source = source;
-            this.collector = collector;
-            this.collection = collection;
+            this.n = n;
+            this.deque = new ArrayDeque<>();
         }
 
         @Override
         public CompletionStage<Boolean> moveNext() {
-            if (collection == null) {
-                result = null;
-                return FALSE;
-            }
-            cf = new CompletableFuture<>();
-            collectSource();
+            result = null;
+            CompletableFuture<Boolean> cf = new CompletableFuture<>();
+            completable = cf;
+            nextSource();
             return cf;
         }
 
         @Override
-        public C current() {
+        public T current() {
             return result;
         }
 
-        void collectSource() {
+        void nextSource() {
             if (getAndIncrement() == 0) {
                 do {
                     if (cancelled) {
@@ -88,27 +85,32 @@ final class AsyncCollect<T, C> implements AsyncEnumerable<C> {
         }
 
         @Override
+        public void cancel() {
+            cancelled = true;
+            source.cancel();
+        }
+
+        @Override
         public void accept(Boolean aBoolean, Throwable throwable) {
             if (throwable != null) {
-                collection = null;
-                cf.completeExceptionally(throwable);
+                deque.clear();
+                completable.completeExceptionally(throwable);
                 return;
             }
 
             if (aBoolean) {
-                collector.accept(collection, source.current());
-                collectSource();
+                if (n == deque.size()) {
+                    result = deque.poll();
+                    deque.offer(source.current());
+                    completable.complete(true);
+                } else {
+                    deque.offer(source.current());
+                    nextSource();
+                }
             } else {
-                result = collection;
-                collection = null;
-                cf.complete(true);
+                deque.clear();
+                completable.complete(false);
             }
-        }
-
-        @Override
-        public void cancel() {
-            cancelled = true;
-            source.cancel();
         }
     }
 }

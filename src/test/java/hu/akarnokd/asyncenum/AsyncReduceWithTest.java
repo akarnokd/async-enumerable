@@ -19,50 +19,39 @@ package hu.akarnokd.asyncenum;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
-public class AsyncIgnoreElementsTest {
+public class AsyncReduceWithTest {
 
     @Test
     public void simple() {
         TestHelper.assertResult(
                 AsyncEnumerable.range(1, 5)
-                .ignoreElements()
+                .reduce(() -> 10, (a, b) -> a + b),
+                25
         );
     }
 
-    @Test
-    public void cancel() {
-        AtomicBoolean cancelled = new AtomicBoolean();
-        AsyncEnumerable.never()
-                .doOnCancel(() -> cancelled.set(true))
-                .ignoreElements()
-                .enumerator()
-                .cancel();
 
-        assertTrue(cancelled.get());
+    @Test
+    public void simpleEmpty() {
+        TestHelper.assertResult(
+                AsyncEnumerable.<Integer>empty()
+                        .reduce(() -> 10, (a, b) -> a + b),
+                10
+        );
     }
 
     @Test
     public void error() {
         TestHelper.assertFailure(
-                AsyncEnumerable.error(new IOException())
-                .ignoreElements(),
+                AsyncEnumerable.<Integer>error(new IOException())
+                .reduce(() -> 10, (a, b) -> a + b),
                 IOException.class
         );
     }
 
     @Test
-    public void nullCurrent() {
-        assertNull(AsyncEnumerable.never().ignoreElements().enumerator().current());
-    }
-
-    @Test(timeout = 5000)
     public void cancelRace() {
-        TestHelper.cancelRace(AsyncEnumerable::ignoreElements);
+        TestHelper.cancelRace(ae -> ae.reduce(() -> 0, (a, b) -> a + b));
     }
-
 }

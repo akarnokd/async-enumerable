@@ -19,69 +19,64 @@ package hu.akarnokd.asyncenum;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.*;
-import java.util.stream.Collector;
 
-final class AsyncCollectWith<T, A, R> implements AsyncEnumerable<R> {
+final class AsyncReduceWith<T, R> implements AsyncEnumerable<R> {
 
     final AsyncEnumerable<T> source;
 
-    final Collector<T, A, R> collector;
+    final Supplier<R> initialSupplier;
 
-    AsyncCollectWith(AsyncEnumerable<T> source, Collector<T, A, R> collector) {
+    final BiFunction<R, T, R> reducer;
+
+    AsyncReduceWith(AsyncEnumerable<T> source, Supplier<R> initialSupplier, BiFunction<R, T, R> reducer) {
         this.source = source;
-        this.collector = collector;
+        this.initialSupplier = initialSupplier;
+        this.reducer = reducer;
     }
 
     @Override
     public AsyncEnumerator<R> enumerator() {
-        return new CollectWithEnumerator<>(source.enumerator(),
-                    collector.supplier().get(),
-                    collector.accumulator(),
-                    collector.finisher()
-                );
+        return new ReduceWithEnumerator<>(source.enumerator(), reducer, initialSupplier.get());
     }
 
-    static final class CollectWithEnumerator<T, A, R> extends AtomicInteger
-    implements AsyncEnumerator<R>, BiConsumer<Boolean, Throwable> {
+    static final class ReduceWithEnumerator<T, R>
+            extends AtomicInteger
+            implements AsyncEnumerator<R>, BiConsumer<Boolean, Throwable> {
 
         final AsyncEnumerator<T> source;
 
-        final BiConsumer<A, T> accumulator;
+        final BiFunction<R, T, R> reducer;
 
-        final Function<A, R> finisher;
-
-        A collection;
+        R accumulator;
 
         R result;
 
-        CompletableFuture<Boolean> cf;
+        boolean once;
+
+        CompletableFuture<Boolean> completable;
 
         volatile boolean cancelled;
 
-        CollectWithEnumerator(AsyncEnumerator<T> source, A collection, BiConsumer<A, T> accumulator, Function<A, R> finisher) {
+        ReduceWithEnumerator(AsyncEnumerator<T> source, BiFunction<R, T, R> reducer, R accumulator) {
             this.source = source;
-            this.collection = collection;
+            this.reducer = reducer;
             this.accumulator = accumulator;
-            this.finisher = finisher;
         }
 
         @Override
         public CompletionStage<Boolean> moveNext() {
-            if (collection == null) {
+            if (once) {
                 result = null;
                 return FALSE;
             }
-            cf = new CompletableFuture<>();
-            collectSource();
+            once = true;
+            CompletableFuture<Boolean> cf = new CompletableFuture<>();
+            completable = cf;
+            nextSource();
             return cf;
         }
 
-        @Override
-        public R current() {
-            return result;
-        }
-
-        void collectSource() {
+        void nextSource() {
             if (getAndIncrement() == 0) {
                 do {
                     if (cancelled) {
@@ -93,27 +88,32 @@ final class AsyncCollectWith<T, A, R> implements AsyncEnumerable<R> {
         }
 
         @Override
-        public void accept(Boolean aBoolean, Throwable throwable) {
-            if (throwable != null) {
-                collection = null;
-                cf.completeExceptionally(throwable);
-                return;
-            }
-
-            if (aBoolean) {
-                accumulator.accept(collection, source.current());
-                collectSource();
-            } else {
-                result = finisher.apply(collection);
-                collection = null;
-                cf.complete(true);
-            }
+        public R current() {
+            return result;
         }
 
         @Override
         public void cancel() {
             cancelled = true;
             source.cancel();
+        }
+
+        @Override
+        public void accept(Boolean aBoolean, Throwable throwable) {
+            if (throwable != null) {
+                accumulator = null;
+                completable.completeExceptionally(throwable);
+                return;
+            }
+
+            if (aBoolean) {
+                accumulator = reducer.apply(accumulator, source.current());
+                nextSource();
+            } else {
+                result = accumulator;
+                accumulator = null;
+                completable.complete(true);
+            }
         }
     }
 }

@@ -19,50 +19,64 @@ package hu.akarnokd.asyncenum;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
-public class AsyncIgnoreElementsTest {
+public class AsyncTakeLastTest {
 
     @Test
     public void simple() {
         TestHelper.assertResult(
                 AsyncEnumerable.range(1, 5)
-                .ignoreElements()
+                .takeLast(2),
+                4, 5
         );
     }
 
     @Test
-    public void cancel() {
-        AtomicBoolean cancelled = new AtomicBoolean();
-        AsyncEnumerable.never()
-                .doOnCancel(() -> cancelled.set(true))
-                .ignoreElements()
-                .enumerator()
-                .cancel();
+    public void simpleEmpty() {
+        TestHelper.assertResult(
+                AsyncEnumerable.range(1, 5)
+                        .takeLast(0)
+        );
+    }
 
-        assertTrue(cancelled.get());
+    @Test
+    public void simpleEmptySource() {
+        TestHelper.assertResult(
+                AsyncEnumerable.empty()
+                        .takeLast(2)
+        );
+    }
+
+    @Test
+    public void simpleAll() {
+        TestHelper.assertResult(
+                AsyncEnumerable.range(1, 5)
+                        .takeLast(5),
+                1, 2, 3, 4, 5
+        );
+    }
+
+
+    @Test
+    public void simpleAll2() {
+        TestHelper.assertResult(
+                AsyncEnumerable.range(1, 5)
+                        .takeLast(6),
+                1, 2, 3, 4, 5
+        );
     }
 
     @Test
     public void error() {
         TestHelper.assertFailure(
                 AsyncEnumerable.error(new IOException())
-                .ignoreElements(),
+                .takeLast(2),
                 IOException.class
         );
     }
 
     @Test
-    public void nullCurrent() {
-        assertNull(AsyncEnumerable.never().ignoreElements().enumerator().current());
-    }
-
-    @Test(timeout = 5000)
     public void cancelRace() {
-        TestHelper.cancelRace(AsyncEnumerable::ignoreElements);
+        TestHelper.cancelRace(ae -> ae.takeLast(2));
     }
-
 }
