@@ -9,7 +9,7 @@ Prototype Java 9 library based on the asynchronous enumerable concept (where mov
 ### Gradle
 
 ```groovy
-compile "com.github.akarnokd:async-enumerable:0.4.0"
+compile "com.github.akarnokd:async-enumerable:0.5.0"
 ```
 
 ### Getting started
