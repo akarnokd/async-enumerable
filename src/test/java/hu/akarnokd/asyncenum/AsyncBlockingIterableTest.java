@@ -20,10 +20,10 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.*;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 public class AsyncBlockingIterableTest {
 
@@ -72,6 +72,17 @@ public class AsyncBlockingIterableTest {
 
             assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
         });
+    }
+
+    @Test
+    public void streamCancel() {
+        AtomicBoolean bool = new AtomicBoolean();
+
+        try (Stream<Integer> str = AsyncEnumerable.range(1, 5).doOnCancel(() -> bool.set(true)).blockingStream()) {
+            assertEquals(1, str.iterator().next().intValue());
+        }
+
+        assertTrue(bool.get());
     }
 
     @Test

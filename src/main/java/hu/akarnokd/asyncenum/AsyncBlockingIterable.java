@@ -32,7 +32,7 @@ final class AsyncBlockingIterable<T> implements Iterable<T> {
         return new BlockingIterator<>(source.enumerator());
     }
 
-    static final class BlockingIterator<T> implements Iterator<T> {
+    static final class BlockingIterator<T> implements Iterator<T>, Runnable {
 
         final AsyncEnumerator<T> source;
 
@@ -78,6 +78,11 @@ final class AsyncBlockingIterable<T> implements Iterable<T> {
                 return v;
             }
             throw new NoSuchElementException();
+        }
+
+        @Override
+        public void run() {
+            source.cancel();
         }
     }
 }

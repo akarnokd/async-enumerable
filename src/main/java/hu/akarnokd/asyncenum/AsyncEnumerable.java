@@ -394,6 +394,10 @@ public interface AsyncEnumerable<T> {
         return new AsyncTakeLast<>(this, n);
     }
 
+    default <R> AsyncEnumerable<R> publish(Function<? super AsyncEnumerable<T>, ? extends AsyncEnumerable<R>> handler) {
+        return new AsyncPublish<>(this, handler);
+    }
+
     // -------------------------------------------------------------------------------------
     // Instance consumers
 
@@ -416,7 +420,8 @@ public interface AsyncEnumerable<T> {
     }
 
     default Stream<T> blockingStream() {
-        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(blockingIterable().iterator(), 0), false);
+        Iterator<T> it = blockingIterable().iterator();
+        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false).onClose((Runnable)it);
     }
 
     default Optional<T> blockingFirstOptional() {
