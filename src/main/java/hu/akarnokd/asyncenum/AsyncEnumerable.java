@@ -150,6 +150,14 @@ public interface AsyncEnumerable<T> {
         return new AsyncGenerate<>(state, generator, releaseState);
     }
 
+    static <T, U> AsyncEnumerable<T> using(Supplier<U> resource, Function<? super U, ? extends AsyncEnumerable<T>> handler, Consumer<? super U> releaseResource) {
+        return new AsyncUsing<>(resource, handler, releaseResource);
+    }
+
+    static <T> AsyncEnumerable<T> create(Consumer<AsyncEmitter<T>> emitter) {
+        return new AsyncCreate<>(emitter);
+    }
+
     // -------------------------------------------------------------------------------------
     // Instance transformations
 
