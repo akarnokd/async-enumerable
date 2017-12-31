@@ -67,6 +67,7 @@ final class AsyncPublish<T, R> implements AsyncEnumerable<R> {
         volatile boolean sourceDone;
         volatile Throwable sourceError;
 
+        @SuppressWarnings("unchecked")
         PublishCoordinator() {
             enumerators = new AtomicReference<>(EMPTY);
             enumeratorWip = new AtomicInteger();

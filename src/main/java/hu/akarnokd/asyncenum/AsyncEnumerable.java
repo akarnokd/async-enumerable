@@ -325,7 +325,7 @@ public interface AsyncEnumerable<T> {
     }
 
     default <S> AsyncEnumerable<T> retryWhen(Supplier<S> stateSupplier, BiFunction<? super S, ? super Throwable, ? extends CompletionStage<Boolean>> completer) {
-        return new AsyncRetryWhen<T, S>(this, stateSupplier, completer);
+        return new AsyncRetryWhen<>(this, stateSupplier, completer);
     }
 
     default <K> AsyncEnumerable<GroupedAsyncEnumerable<T, K>> groupBy(Function<? super T, ? extends K> keySelector) {
@@ -404,6 +404,18 @@ public interface AsyncEnumerable<T> {
 
     default <R> AsyncEnumerable<R> publish(Function<? super AsyncEnumerable<T>, ? extends AsyncEnumerable<R>> handler) {
         return new AsyncPublish<>(this, handler);
+    }
+
+    default AsyncEnumerable<T> switchIfEmpty(AsyncEnumerable<T> fallback) {
+        return new AsyncSwitchIfEmpty<>(this, fallback);
+    }
+
+    default AsyncEnumerable<T> first() {
+        return new AsyncFirst<>(this);
+    }
+
+    default AsyncEnumerable<T> last() {
+        return new AsyncLast<>(this);
     }
 
     // -------------------------------------------------------------------------------------
