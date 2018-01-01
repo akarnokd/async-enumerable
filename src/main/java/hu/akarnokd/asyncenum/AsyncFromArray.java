@@ -59,5 +59,10 @@ final class AsyncFromArray<T> implements AsyncEnumerable<T> {
         public T current() {
             return current;
         }
+
+        @Override
+        public void cancel() {
+            // No action, consumer should stop calling moveNext().
+        }
     }
 }

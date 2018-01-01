@@ -119,4 +119,19 @@ public class AsyncMathOperatorsTest {
                 RuntimeException.class, "forced failure"
         );
     }
+
+    @Test
+    public void maxCancelRace() {
+        TestHelper.cancelRace(ae -> ae.max(Comparator.naturalOrder()));
+    }
+
+    @Test
+    public void sumIntCancelRace() {
+        TestHelper.cancelRace(ae -> ae.sumInt(v -> v));
+    }
+
+    @Test
+    public void sumLongCancelRace() {
+        TestHelper.cancelRace(ae -> ae.sumLong(v -> v));
+    }
 }

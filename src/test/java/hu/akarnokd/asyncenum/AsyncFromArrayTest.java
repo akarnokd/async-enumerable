@@ -34,4 +34,13 @@ public class AsyncFromArrayTest {
 
         assertEquals(Arrays.asList(1, 2, 3, 4, 5), list);
     }
+
+    @Test
+    public void take() {
+        TestHelper.assertResult(
+                AsyncEnumerable.fromArray(1, 2, 3, 4, 5)
+                .take(3),
+                1, 2, 3
+        );
+    }
 }

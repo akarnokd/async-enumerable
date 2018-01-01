@@ -40,4 +40,9 @@ final class AsyncError<T> implements AsyncEnumerable<T>, AsyncEnumerator<T> {
     public T current() {
         return null;
     }
+
+    @Override
+    public void cancel() {
+        // No action, consumer should stop calling moveNext().
+    }
 }

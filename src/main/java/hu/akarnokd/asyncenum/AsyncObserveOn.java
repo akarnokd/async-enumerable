@@ -57,6 +57,10 @@ final class AsyncObserveOn<T> implements AsyncEnumerable<T> {
             return source.current();
         }
 
+        @Override
+        public void cancel() {
+            source.cancel();
+        }
     }
 
 }

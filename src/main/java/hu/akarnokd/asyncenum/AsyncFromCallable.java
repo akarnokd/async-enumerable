@@ -62,5 +62,10 @@ final class AsyncFromCallable<T> implements AsyncEnumerable<T> {
         public T current() {
             return result;
         }
+
+        @Override
+        public void cancel() {
+            // No action, consumer should stop calling moveNext().
+        }
     }
 }

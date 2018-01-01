@@ -40,4 +40,9 @@ final class AsyncRepeatItem<T> implements AsyncEnumerable<T>, AsyncEnumerator<T>
     public T current() {
         return item;
     }
+
+    @Override
+    public void cancel() {
+        // No action, consumer should stop calling moveNext().
+    }
 }

@@ -33,6 +33,11 @@ enum AsyncEnumeratorHelper implements AsyncEnumerator<Object> {
         return null;
     }
 
+    @Override
+    public void cancel() {
+        // No action, consumer should stop calling moveNext().
+    }
+
     @SuppressWarnings("unchecked")
     static <T> boolean cancel(AtomicReference<AsyncEnumerator<T>> target) {
         AsyncEnumerator<?> current = target.getAndSet((AsyncEnumerator<T>)CANCELLED);

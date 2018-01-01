@@ -65,7 +65,20 @@ final class AsyncSubscribeOn<T> implements AsyncEnumerable<T> {
 
         @Override
         public void run() {
-            source.complete(upstream.enumerator());
+            AsyncEnumerator<T> en = upstream.enumerator();
+            if (!source.complete(en)) {
+                en.cancel();
+            }
+        }
+
+        @Override
+        public void cancel() {
+            if (!source.completeExceptionally(new CancellationException())) {
+                AsyncEnumerator<T> en = source.getNow(null);
+                if (en != null) {
+                    en.cancel();
+                }
+            }
         }
     }
 }

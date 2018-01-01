@@ -51,6 +51,8 @@ final class AsyncSumLong<T> implements AsyncEnumerable<Long> {
 
         CompletableFuture<Boolean> cf;
 
+        volatile boolean cancelled;
+
         SumLongEnumerator(AsyncEnumerator<T> source, Function<? super T, ? extends Number> selector) {
             this.source = source;
             this.selector = selector;
@@ -75,6 +77,9 @@ final class AsyncSumLong<T> implements AsyncEnumerable<Long> {
         void collectSource() {
             if (getAndIncrement() == 0) {
                 do {
+                    if (cancelled) {
+                        return;
+                    }
                     source.moveNext().whenComplete(this);
                 } while (decrementAndGet() != 0);
             }
@@ -101,6 +106,12 @@ final class AsyncSumLong<T> implements AsyncEnumerable<Long> {
                     cf.complete(false);
                 }
             }
+        }
+
+        @Override
+        public void cancel() {
+            cancelled = true;
+            source.cancel();
         }
     }
 }

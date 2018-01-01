@@ -74,5 +74,10 @@ final class AsyncFromCompletionStage<T> implements AsyncEnumerable<T> {
                 completable.complete(true);
             }
         }
+
+        @Override
+        public void cancel() {
+            // No action, consumer should stop calling moveNext().
+        }
     }
 }

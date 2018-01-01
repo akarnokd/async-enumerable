@@ -54,5 +54,10 @@ final class AsyncJust<T> implements AsyncEnumerable<T> {
         public T current() {
             return value;
         }
+
+        @Override
+        public void cancel() {
+            // No action, consumer should stop calling moveNext().
+        }
     }
 }

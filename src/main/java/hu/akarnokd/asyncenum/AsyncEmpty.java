@@ -40,4 +40,9 @@ enum AsyncEmpty implements AsyncEnumerable<Object>, AsyncEnumerator<Object> {
     public Object current() {
         return null;
     }
+
+    @Override
+    public void cancel() {
+        // No action, consumer should stop calling moveNext().
+    }
 }

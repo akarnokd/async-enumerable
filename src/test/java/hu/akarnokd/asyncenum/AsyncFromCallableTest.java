@@ -36,4 +36,11 @@ public class AsyncFromCallableTest {
                 IOException.class
         );
     }
+
+    @Test
+    public void cancel() {
+        AsyncEnumerable.fromCallable(() -> 1)
+                .enumerator()
+                .cancel();
+    }
 }

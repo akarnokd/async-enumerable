@@ -64,5 +64,10 @@ final class AsyncRange implements AsyncEnumerable<Integer> {
         public Integer current() {
             return current;
         }
+
+        @Override
+        public void cancel() {
+            // No action, consumer should stop calling moveNext().
+        }
     }
 }

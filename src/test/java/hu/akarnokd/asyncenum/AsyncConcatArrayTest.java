@@ -21,6 +21,7 @@ import org.junit.Test;
 import java.util.*;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 
 public class AsyncConcatArrayTest {
 
@@ -81,5 +82,17 @@ public class AsyncConcatArrayTest {
     @Test
     public void emptyArray() {
         TestHelper.assertResult(AsyncEnumerable.concatArray());
+    }
+
+    @Test
+    public void cancelThenMove() {
+        TestHelper.withExecutor(executor -> {
+            for (int i = 0; i < 10000; i++) {
+                AsyncEnumerator<Integer> en = AsyncEnumerable.concatArray(AsyncEnumerable.range(1, 5))
+                        .enumerator();
+
+                TestHelper.race(en::cancel, en::moveNext, executor);
+            }
+        });
     }
 }

@@ -52,6 +52,8 @@ final class AsyncMax<T> implements AsyncEnumerable<T> {
 
         CompletableFuture<Boolean> completable;
 
+        volatile boolean cancelled;
+
         SumLongEnumerator(AsyncEnumerator<T> source, Comparator<? super T> comparator) {
             this.source = source;
             this.comparator = comparator;
@@ -76,6 +78,9 @@ final class AsyncMax<T> implements AsyncEnumerable<T> {
         void collectSource() {
             if (getAndIncrement() == 0) {
                 do {
+                    if (cancelled) {
+                        return;
+                    }
                     source.moveNext().whenComplete(this);
                 } while (decrementAndGet() != 0);
             }
@@ -109,6 +114,12 @@ final class AsyncMax<T> implements AsyncEnumerable<T> {
                     completable.complete(false);
                 }
             }
+        }
+
+        @Override
+        public void cancel() {
+            cancelled = true;
+            source.cancel();
         }
     }
 }

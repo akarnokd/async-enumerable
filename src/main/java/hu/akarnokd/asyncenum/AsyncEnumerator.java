@@ -51,8 +51,5 @@ public interface AsyncEnumerator<T> {
      * Instructs the AsyncEnumerator to cancel any outstanding async activity and
      * release resources associated with it.
      */
-    // FIXME make mandatory
-    default void cancel() {
-
-    }
+    void cancel();
 }

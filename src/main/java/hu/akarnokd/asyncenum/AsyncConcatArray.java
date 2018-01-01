@@ -17,7 +17,7 @@
 package hu.akarnokd.asyncenum;
 
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.*;
 import java.util.function.BiConsumer;
 
 final class AsyncConcatArray<T> implements AsyncEnumerable<T> {
@@ -38,7 +38,7 @@ final class AsyncConcatArray<T> implements AsyncEnumerable<T> {
 
         final AsyncEnumerable<T>[] sources;
 
-        AsyncEnumerator<T> currentEnumerator;
+        final AtomicReference<AsyncEnumerator<T>> currentEnumerator;
 
         CompletableFuture<Boolean> currentStage;
 
@@ -46,25 +46,28 @@ final class AsyncConcatArray<T> implements AsyncEnumerable<T> {
 
         ConcatArrayEnumerator(AsyncEnumerable<T>[] sources) {
             this.sources = sources;
+            this.currentEnumerator = new AtomicReference<>();
         }
 
         @Override
         public CompletionStage<Boolean> moveNext() {
-            if (currentEnumerator == null) {
+            if (currentEnumerator.get() == null) {
                 if (index == sources.length) {
                     return FALSE;
                 }
-                currentEnumerator = sources[index++].enumerator();
+                if (!AsyncEnumeratorHelper.replace(currentEnumerator, sources[index++].enumerator())) {
+                    return CANCELLED;
+                }
             }
 
             currentStage = new CompletableFuture<>();
-            currentEnumerator.moveNext().whenComplete(this);
+            currentEnumerator.getPlain().moveNext().whenComplete(this);
             return currentStage;
         }
 
         @Override
         public T current() {
-            return currentEnumerator.current();
+            return currentEnumerator.getPlain().current();
         }
 
         @Override
@@ -82,11 +85,20 @@ final class AsyncConcatArray<T> implements AsyncEnumerable<T> {
                             currentStage.complete(false);
                             break;
                         }
-                        currentEnumerator = sources[index++].enumerator();
-                        currentEnumerator.moveNext().whenComplete(this);
+                        AsyncEnumerator<T> en = sources[index++].enumerator();
+                        if (AsyncEnumeratorHelper.replace(currentEnumerator, en)) {
+                            en.moveNext().whenComplete(this);
+                        } else {
+                            break;
+                        }
                     } while (decrementAndGet() != 0);
                 }
             }
+        }
+
+        @Override
+        public void cancel() {
+            AsyncEnumeratorHelper.cancel(currentEnumerator);
         }
     }
 }

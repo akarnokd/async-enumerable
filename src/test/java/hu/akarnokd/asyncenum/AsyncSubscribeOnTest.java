@@ -20,6 +20,7 @@ import org.junit.Test;
 
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -43,5 +44,24 @@ public class AsyncSubscribeOnTest {
         } finally {
             exec.shutdownNow();
         }
+    }
+
+    @Test
+    public void cancel() {
+        TestHelper.withScheduler(executor ->{
+            AtomicReference<Future<?>> f = new AtomicReference<>();
+            AsyncEnumerable.range(1, 5)
+                .subscribeOn(r -> {
+                    f.set(executor.schedule(r, 100, TimeUnit.MILLISECONDS));
+                })
+                .enumerator()
+                .cancel();
+
+            try {
+                f.get().get();
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
+        });
     }
 }

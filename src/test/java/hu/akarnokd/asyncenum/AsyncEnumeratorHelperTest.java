@@ -77,4 +77,9 @@ public class AsyncEnumeratorHelperTest {
     public void cancelledMoveNext() throws InterruptedException {
         assertSame(AsyncEnumerable.CANCELLED, AsyncEnumeratorHelper.CANCELLED.moveNext());
     }
+
+    @Test
+    public void cancelledCancel() {
+        AsyncEnumeratorHelper.CANCELLED.cancel();
+    }
 }
