@@ -7,8 +7,10 @@ buildscript {
     }
 
     dependencies {
-        classpath 'gradle.plugin.nl.javadude.gradle.plugins:license-gradle-plugin:0.13.1'
-        classpath "me.champeau.gradle:jmh-gradle-plugin:0.4.5"
+        classpath "me.champeau.gradle:jmh-gradle-plugin:0.5.0"
+        classpath "biz.aQute.bnd:biz.aQute.bnd.gradle:4.3.0"
+        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.8.0'
+        classpath "gradle.plugin.com.hierynomus.gradle.plugins:license-gradle-plugin:0.15.0"
     }
 }
 
@@ -40,10 +42,6 @@ repositories {
     maven { url 'http://repo.spring.io/libs-snapshot' }
 }
 
-apply from: file('gradle/maven.gradle')
-apply plugin: 'maven'
-apply plugin: 'osgi'
-
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
     testCompile 'org.reactivestreams:reactive-streams-tck-flow:1.0.2'
@@ -56,47 +54,22 @@ tasks.withType(JavaCompile) {
     options.compilerArgs << "-parameters";
 }
 
-task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'sources'
-    from sourceSets.main.allSource
-}
+apply plugin: 'maven'
 
-task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier = 'javadoc'
-    from javadoc.destinationDir
-}
-
-artifacts {
-    archives jar
-    archives sourcesJar
-    archives javadocJar
-}
+apply plugin: 'biz.aQute.bnd.builder'
 
 jar {
-    manifest {
-        name = 'async-enumerable'
-        instruction 'Bundle-Vendor', 'akarnokd'
-        instruction 'Bundle-DocURL', 'https://github.com/akarnokd/async-enumerable'
-        instruction 'Import-Package', '!org.junit,!junit.framework,!org.mockito.*,*'
-        instruction 'Eclipse-ExtensibleAPI', 'true'
-    }
+    bnd ('Bundle-Name': 'async-enumerable',
+            'Bundle-Vendor': 'akarnokd',
+            'Bundle-Description': 'Prototype Java 9 library based on the asynchronous enumerable concept (where moveNext() returns a task to compose over).',
+            'Import-Package': '!org.junit,!junit.framework,!org.mockito.*,*',
+            'Bundle-DocURL': 'https://github.com/akarnokd/async-enumerable')
 }
 
-apply plugin: 'maven-publish'
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
-            artifact (sourcesJar) { 
-                classifier = 'sources'
-            }
-        }
-    }
-}
+apply plugin: "com.vanniktech.maven.publish"
 
 jmh {
-    jmhVersion = '1.19'
+    jmhVersion = '1.21'
     humanOutputFile = null
     includeTests = false
 
@@ -163,7 +136,7 @@ license {
 }
 
 jacoco {
-    toolVersion = '0.7.9' // See http://www.eclemma.org/jacoco/.
+    toolVersion = '0.8.5' // See http://www.eclemma.org/jacoco/.
 }
 
 jacocoTestReport {
