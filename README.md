@@ -1,6 +1,6 @@
 # async-enumerable
 
-<a href='https://travis-ci.org/akarnokd/async-enumerable/builds'><img src='https://travis-ci.org/akarnokd/async-enumerable.svg?branch=master'></a>
+<a href='https://travis-ci.com/akarnokd/async-enumerable/builds'><img src='https://travis-ci.com/akarnokd/async-enumerable.svg?branch=master'></a>
 [![codecov.io](http://codecov.io/github/akarnokd/async-enumerable/coverage.svg?branch=master)](http://codecov.io/github/akarnokd/async-enumerable?branch=master)
 [![Maven Central](https://img.shields.io/maven-central/v/com.github.akarnokd/async-enumerable.svg)](http://search.maven.org/#search%7Cga%7C1%7Ccom.github.akarnokd%2C%20async-enumerable)
 
